@@ -26,14 +26,15 @@ __host__ cudaEvent_t get_time(void)
 
 // utility function to form edge between two vertices 
 // source and dest 
-void add_edge(int *graph, int src, int dest) 
+void add_edge(std::vector<std::vector<int> > &graph, int src, int dest) 
 { 
-    ++graph[src]  = dest; 
-    ++graph[dest] = src; 
+    graph[src].push_back(dest); 
+
+    graph[dest].push_back(src); 
 } 
   
 
-__global__ void BFSThrust(int  *graph, 
+__global__ void BFSThrust(int **graph, 
                           int  *numEdges,     // arrray for number of edges for each vertex
                           int  *queue,        // queue of edges to be searched
                           bool *visited,      // array to see if edges have been visited
@@ -56,7 +57,7 @@ __global__ void BFSThrust(int  *graph,
        printf("Edges Count %d\n", numEdges[iter]);
    } 
  
-   visited[source] = true; 
+   //visited[source] = true; 
    dist[source] = 0; 
    queue[0] = source; 
  
@@ -73,8 +74,8 @@ __global__ void BFSThrust(int  *graph,
        printf("Edgs %d\n", numEdges[queueIter]);
        for (int iter = 0; iter < numEdges[queueIter]; iter++) 
        { 
-           printf("test\n");
-           printf("graph %d\n", graph[queueIter]);
+           printf("Element (%d, %d) = %d\n", queueIter, iter,graph[queueIter][iter]);
+           printf("Visited Value = %d\n",    visited[graph[queueIter][iter]]);
            if (visited[graph[queueIter][iter]] == false) 
            {    
                printf("We inside visit\n");
@@ -127,10 +128,12 @@ float RunBFSShortestDistance(int numVerticies,
 
     // Double Vector for verticies
     // Vector of vectors to store graph
-    int *vertices = (int*) malloc(sizeof(int) * numVerticies * numVerticies); 
+   // int *vertices = (int*) malloc(sizeof(int) * numVerticies * numVerticies); 
+   std::vector<std::vector<int> > vertices; 
 
+    //vertex *vertices = (vertex *) malloc(sizeof(vertex) * numVerticies);
     // Initialize vertex to correct size
-   // verticies.resize(numVerticies);
+    vertices.resize(numVerticies);
 
     // need to read in verticies
   
@@ -168,13 +171,30 @@ float RunBFSShortestDistance(int numVerticies,
 
     int arraySizeInBytes = sizeof(int) * numVerticies;
 
+    printf("Converting Vectors of Vectors...\n");
+
+    // Convert Vector of Vector to 2d array
+    int** h_graph;
+    h_graph = new int*[numVerticies];
+    for(int iter1 = 0; (iter1 < numVerticies); ++iter1)
+    { 
+       h_graph[iter1] = new int[vertices[iter1].size()];
+
+       for(int iter2 = 0; (iter2 < vertices[iter1].size()); ++iter2)
+       {
+        h_graph[iter1][iter2] = vertices[iter1][iter2];
+       } 
+    }
+
+    printf("Done...\n");
+
     bool *d_vertexVisited;   // array to see if edges have been visited
     int  *d_numEdges;        // arrray for number of edges for each vertex
     int  *d_edgeQueue;       // queue of edges to be searched
     int  *d_pred;            // array to store predecssors
     int  *d_dist;            // array to store distances
 
-    int  *d_graph;
+    int  **d_graph;
 
     printf("Before allocating graph\n");
 
@@ -197,21 +217,28 @@ float RunBFSShortestDistance(int numVerticies,
 
     for (int vectIter = 0; vectIter < numVerticies; vectIter++)
     {
-       // h_numEdges[vectIter] = vertices[vectIter].size();
+       h_numEdges[vectIter] = vertices[vectIter].size();
     }
 
     cudaMemcpy(d_numEdges, h_numEdges, arraySizeInBytes, cudaMemcpyHostToDevice);
 
     // allocate correctly and pass to kernel by making verticies pointers so memory on memory
-    cudaMemcpy(d_graph,    vertices, sizeof(int) * numVerticies * numVerticies, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_graph,    h_graph, sizeof(int) * numVerticies * numVerticies, cudaMemcpyHostToDevice);
 
-    printf("Afer edgething \n");
+    printf("Afer edge thing \n");
 
-    // thrust::device_vector<int> d_graph(numVerticies * numVerticies);
-    // thrust::copy(&(verticies[0][0]), &(verticies[numVerticies - 1][numVerticies - 1]), d_graph.begin());
+    //thrust::device_vector<int> d_graph(numVerticies * totalEdges);
+    printf("Afer vector\n");
+
+    //thrust::device_vector<int> d_graph(vertices);
+
+    // thrust::copy(&(vertices[0][0]), &(vertices[numVerticies - 1][numVerticies - 1]), d_graph.begin());
+    // printf("Afer copy\n");
     // thrust::sequence(d_graph.begin(), d_graph.end());
+
+    printf("Before Kernel Call");
     // BFS call
-    BFSThrust<<<1,1>>>(d_graph, 
+    BFSThrust<<<1,1>>>(d_graph /*thrust::raw_pointer_cast(d_graph.data())*/,
                        d_numEdges,
                        d_edgeQueue, 
                        d_vertexVisited, 
@@ -234,7 +261,7 @@ float RunBFSShortestDistance(int numVerticies,
     cudaFree(d_dist);
 
     free(h_numEdges);
-    free(vertices);
+    //free(vertices);
 
     return 0.0;
 }

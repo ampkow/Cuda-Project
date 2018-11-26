@@ -26,14 +26,14 @@ __host__ cudaEvent_t get_time(void)
 
 // utility function to form edge between two vertices 
 // source and dest 
-void add_edge(std::vector<std::vector<int> > &graph, int src, int dest) 
+void add_edge(int *graph, int src, int dest) 
 { 
-    graph[src].push_back(dest); 
-    graph[dest].push_back(src); 
+    ++graph[src]  = dest; 
+    ++graph[dest] = src; 
 } 
   
 
-__global__ void BFSThrust(int **graph, 
+__global__ void BFSThrust(int  *graph, 
                           int  *numEdges,     // arrray for number of edges for each vertex
                           int  *queue,        // queue of edges to be searched
                           bool *visited,      // array to see if edges have been visited
@@ -127,10 +127,10 @@ float RunBFSShortestDistance(int numVerticies,
 
     // Double Vector for verticies
     // Vector of vectors to store graph
-    std::vector<std::vector<int> > verticies; 
+    int *vertices = (int*) malloc(sizeof(int) * numVerticies * numVerticies); 
 
     // Initialize vertex to correct size
-    verticies.resize(numVerticies);
+   // verticies.resize(numVerticies);
 
     // need to read in verticies
   
@@ -144,25 +144,25 @@ float RunBFSShortestDistance(int numVerticies,
     bool foundDest = false;
 
     totalEdges++;
-    add_edge(verticies, 0, 1); 
+    add_edge(vertices, 0, 1); 
     totalEdges++;
-    add_edge(verticies, 0, 3);
+    add_edge(vertices, 0, 3);
     totalEdges++;
-    add_edge(verticies, 1, 2); 
+    add_edge(vertices, 1, 2); 
     totalEdges++;
-    add_edge(verticies, 3, 4); 
+    add_edge(vertices, 3, 4); 
     totalEdges++;
-    add_edge(verticies, 3, 7); 
+    add_edge(vertices, 3, 7); 
     totalEdges++;
-    add_edge(verticies, 4, 5); 
+    add_edge(vertices, 4, 5); 
     totalEdges++;
-    add_edge(verticies, 4, 6); 
+    add_edge(vertices, 4, 6); 
     totalEdges++;
-    add_edge(verticies, 4, 7); 
+    add_edge(vertices, 4, 7); 
     totalEdges++;
-    add_edge(verticies, 5, 6); 
+    add_edge(vertices, 5, 6); 
     totalEdges++;
-    add_edge(verticies, 6, 7); 
+    add_edge(vertices, 6, 7); 
     // int source = 0;
     // int dest   = 7;
 
@@ -174,7 +174,7 @@ float RunBFSShortestDistance(int numVerticies,
     int  *d_pred;            // array to store predecssors
     int  *d_dist;            // array to store distances
 
-    int  **d_graph;
+    int  *d_graph;
 
     printf("Before allocating graph\n");
 
@@ -195,15 +195,15 @@ float RunBFSShortestDistance(int numVerticies,
 
     printf("Afer cuda malloc \n");
 
-    for (int vectIter = 0; vectIter < verticies.size(); vectIter++)
+    for (int vectIter = 0; vectIter < numVerticies; vectIter++)
     {
-        h_numEdges[vectIter] = verticies[vectIter].size();
+       // h_numEdges[vectIter] = vertices[vectIter].size();
     }
 
     cudaMemcpy(d_numEdges, h_numEdges, arraySizeInBytes, cudaMemcpyHostToDevice);
 
     // allocate correctly and pass to kernel by making verticies pointers so memory on memory
-    cudaMemcpy(d_graph,    verticies, sizeof(int) * numVerticies * numVerticies, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_graph,    vertices, sizeof(int) * numVerticies * numVerticies, cudaMemcpyHostToDevice);
 
     printf("Afer edgething \n");
 
@@ -234,6 +234,7 @@ float RunBFSShortestDistance(int numVerticies,
     cudaFree(d_dist);
 
     free(h_numEdges);
+    free(vertices);
 
     return 0.0;
 }

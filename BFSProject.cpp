@@ -81,7 +81,7 @@ bool BFS(vector<vector<int>> &graph,
 
 void FindShortestPath(vector<int> &path,
                       vector<int> &pred,
-                      int     dest)
+                      int          dest)
 {
     int pointer = dest;
  

@@ -6,16 +6,6 @@
 #include "nvgraph.h"
 
 #include "KernelFunctions.h"
-
-// __host__ allows to run on device and host and void code duplication
-// taken from global_memory.cu
-__host__ cudaEvent_t get_time(void)
-{
-    cudaEvent_t time;
-    cudaEventCreate(&time);
-    cudaEventRecord(time);
-	return time;
-}
  
 int main(int argc, char** argv)
 {
@@ -24,13 +14,15 @@ int main(int argc, char** argv)
 
     if (argc >= 2) 
     {
-		elements = atoi(argv[1]);
+		verticies = atoi(argv[1]);
 	}
 
     printf("Element test size is %d\n", verticies);
 
     // Using Advanced Library NVGraph for finding the shortest Path
-    float run_time = run_nvgraph_search(verticies);
+    float run_time = 0.0; //run_nvgraph_search(verticies);
+
+    RunBFSShortestDistance(8, 7, 0);
 
     printf("Total run time for range test %f\n", run_time);
 

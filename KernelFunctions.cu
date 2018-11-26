@@ -5,6 +5,10 @@
 
 #include "nvgraph.h"
 
+// STL
+#include <vector> 
+#include <iostream>
+
 // Internal Headers
 #include "KernelFunctions.h"
 
@@ -20,15 +24,222 @@ __host__ cudaEvent_t get_time(void)
 	return time;
 }
 
-float RunBFSShortestDistance(int numVerticies)
+// utility function to form edge between two vertices 
+// source and dest 
+void add_edge(std::vector<std::vector<int> > &graph, int src, int dest) 
+{ 
+    graph[src].push_back(dest); 
+    graph[dest].push_back(src); 
+} 
+  
+
+__global__ void BFSThrust(int **graph, 
+                          int  *numEdges,     // arrray for number of edges for each vertex
+                          int  *queue,        // queue of edges to be searched
+                          bool *visited,      // array to see if edges have been visited
+                          int   source,
+                          int   dest,
+                          int   vertexSize,
+                          int  *pred,
+                          int  *dist,
+                          bool  &found,
+                          int   totalEdges)    // Total number of edges in the graph
 {
-    thrust::host_vector<int> graph[numVerticies];
+
+   printf("We inside kernel\n");
+   for (int iter = 0; iter < vertexSize; iter++) 
+   { 
+       visited[iter] = false; 
+       dist[iter]    = 0; 
+       pred[iter]    = -1; 
+
+       printf("Edges Count %d\n", numEdges[iter]);
+   } 
+ 
+   visited[source] = true; 
+   dist[source] = 0; 
+   queue[0] = source; 
+ 
+   // BFS algorithm  
+
+   // Pointer for front of Queue
+   int pointer     = 0;
+   int backPointer = 1;
+   while (pointer < totalEdges) 
+   {  
+       printf("We inside queue\n");
+       int queueIter = queue[pointer]; 
+       pointer++; 
+       printf("Edgs %d\n", numEdges[queueIter]);
+       for (int iter = 0; iter < numEdges[queueIter]; iter++) 
+       { 
+           printf("test\n");
+           printf("graph %d\n", graph[queueIter]);
+           if (visited[graph[queueIter][iter]] == false) 
+           {    
+               printf("We inside visit\n");
+
+               visited[graph[queueIter][iter]] = true; 
+               dist[graph[queueIter][iter]]    = dist[queueIter] + 1; 
+               pred[graph[queueIter][iter]]    = queueIter; 
+
+               queue[backPointer] = graph[queueIter][iter]; 
+               backPointer++;
+ 
+               // Stop When finding destination
+               if (graph[queueIter][iter] == dest) 
+               {
+                  found =  true; 
+                  printf("WE WON!!!!\n");
+                  return;
+               }
+           } 
+       } 
+   } 
+}
+
+__global__ void FindShortestPath(int *path,
+                                 int *pred,
+                                 int  dest)
+{
+    int pointer = dest;
+
+    int pathSize = 0;
+    for ( ;pred[pointer] != -1; pathSize++) 
+    { 
+        path[pathSize] = pred[pointer]; 
+        pointer = pred[pointer]; 
+    } 
+
+    // printing path from source to destination 
+    // std::cout << "\nShortest Path: \n"; 
+    // for (int iter = pathSize - 1; iter >= 0; iter--) 
+    // {
+    //     std::cout << path[iter] << " "; 
+    // }
+
+}
+
+float RunBFSShortestDistance(int numVerticies,
+                             int dest,
+                             int source)
+{
+
+    // Double Vector for verticies
+    // Vector of vectors to store graph
+    std::vector<std::vector<int> > verticies; 
+
+    // Initialize vertex to correct size
+    verticies.resize(numVerticies);
+
+    // need to read in verticies
+  
+    // Creating graph given in the above diagram. 
+    // add_edge function takes adjacency list, source  
+    // and destination vertex as argument and forms 
+    // an edge between them. 
+
+    int totalEdges = 0;
+
+    bool foundDest = false;
+
+    totalEdges++;
+    add_edge(verticies, 0, 1); 
+    totalEdges++;
+    add_edge(verticies, 0, 3);
+    totalEdges++;
+    add_edge(verticies, 1, 2); 
+    totalEdges++;
+    add_edge(verticies, 3, 4); 
+    totalEdges++;
+    add_edge(verticies, 3, 7); 
+    totalEdges++;
+    add_edge(verticies, 4, 5); 
+    totalEdges++;
+    add_edge(verticies, 4, 6); 
+    totalEdges++;
+    add_edge(verticies, 4, 7); 
+    totalEdges++;
+    add_edge(verticies, 5, 6); 
+    totalEdges++;
+    add_edge(verticies, 6, 7); 
+    // int source = 0;
+    // int dest   = 7;
+
+    int arraySizeInBytes = sizeof(int) * numVerticies;
+
+    bool *d_vertexVisited;   // array to see if edges have been visited
+    int  *d_numEdges;        // arrray for number of edges for each vertex
+    int  *d_edgeQueue;       // queue of edges to be searched
+    int  *d_pred;            // array to store predecssors
+    int  *d_dist;            // array to store distances
+
+    int  **d_graph;
+
+    printf("Before allocating graph\n");
+
+    cudaMalloc((void**) &d_graph, sizeof(int) * numVerticies * numVerticies);
+
+    printf("Afer allocating graph\n");
+
+    int *h_numEdges = (int *) malloc(arraySizeInBytes); 
+
+    // Allocate  Global memory
+    cudaMalloc((void**) &d_vertexVisited,  sizeof(bool) * numVerticies); //doesnt need populating
+    cudaMalloc((void**) &d_numEdges,       arraySizeInBytes);            // does
+    cudaMalloc((void**) &d_edgeQueue,      arraySizeInBytes);            // doesnt
+    cudaMalloc((void**) &d_pred,           arraySizeInBytes);            // doesnt
+    cudaMalloc((void**) &d_dist,           arraySizeInBytes);            // doesnt
+
+    // After Cuda Malloc
+
+    printf("Afer cuda malloc \n");
+
+    for (int vectIter = 0; vectIter < verticies.size(); vectIter++)
+    {
+        h_numEdges[vectIter] = verticies[vectIter].size();
+    }
+
+    cudaMemcpy(d_numEdges, h_numEdges, arraySizeInBytes, cudaMemcpyHostToDevice);
+
+    // allocate correctly and pass to kernel by making verticies pointers so memory on memory
+    cudaMemcpy(d_graph,    verticies, sizeof(int) * numVerticies * numVerticies, cudaMemcpyHostToDevice);
+
+    printf("Afer edgething \n");
+
+    // thrust::device_vector<int> d_graph(numVerticies * numVerticies);
+    // thrust::copy(&(verticies[0][0]), &(verticies[numVerticies - 1][numVerticies - 1]), d_graph.begin());
+    // thrust::sequence(d_graph.begin(), d_graph.end());
+    // BFS call
+    BFSThrust<<<1,1>>>(d_graph, 
+                       d_numEdges,
+                       d_edgeQueue, 
+                       d_vertexVisited, 
+                       source,
+                       dest,
+                       numVerticies,
+                       d_pred,
+                       d_dist,
+                       foundDest,
+                       totalEdges);
+
+
+    printf("After Kernel Call\n");
+    cudaDeviceSynchronize();
+
+    cudaFree(d_vertexVisited);
+    cudaFree(d_numEdges);
+    cudaFree(d_edgeQueue);
+    cudaFree(d_pred);
+    cudaFree(d_dist);
+
+    free(h_numEdges);
 
     return 0.0;
 }
 
 // Runs BFS on a generated graph and prints out
- // distances
+ // distances may not worry about this
  float run_nvgraph_search(int numVerticies)
  {
      // Graph is in CSR format
@@ -57,6 +268,9 @@ float RunBFSShortestDistance(int numVerticies)
      {
          host_dest[destIter] = host_offsets[destIter + 1];
      }
+
+     //source_offsets 	Array of size nvertices+1, where i element equals to the number of the first edge for this vertex in the list of all outgoing edges in the destination_indices array. Last element stores total number of edges
+     //destination_indices 	Array of size nedges, where each value designates destanation vertex for an edge. 
      
      // Last Value of Offsets equal number of edges in graph
      host_offsets[verticies] = num_edges;
@@ -170,7 +384,9 @@ float RunBFSShortestDistance(int numVerticies)
      for (int iter1 = 0; iter1 < verticies; iter1++)  
      {
          printf("Distance to vertex %d: %i\n", iter1, host_distances[iter1]);
+ //        printf("Predecessor of vertex %d: %i\n",iter1, host_predecessors[iter1]);
      }
+    
  
      free(dimT);
      free(d_input);

@@ -1,6 +1,8 @@
 // Kernel Functions.h
 
-float RunBFSShortestDistance(int numVerticies);
+float RunBFSShortestDistance(int numVerticies,
+                             int dest,
+                             int source);
 
 // Runs BFS on a generated graph and prints out
  // distances

@@ -1,2 +1,2 @@
-all: nvgraph_assign.cu
-	nvcc  -lcudart -lcuda -lnvgraph -I ../../../common/inc nvgraph_assign.cu -o nvgraph_assign
+all: BFS.cu
+	nvcc  -lcudart -lcuda -lnvgraph -I ../../../common/inc BFSProject.cu KernelFunctions.cu -o BFS

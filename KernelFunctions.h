@@ -1,8 +1,11 @@
 // Kernel Functions.h
 
-float RunBFSShortestDistance(int numVerticies,
-                             int dest,
-                             int source);
+#include <vector>
+
+float RunBFSShortestDistance(std::vector<std::vector<int> > &graph,
+                             int                             dest,
+                             int                             source,
+                             int                             totalEdges);
 
 // Runs BFS on a generated graph and prints out
  // distances

@@ -7,6 +7,8 @@
 #include <vector> 
 #include <iostream>
 using namespace std; 
+
+#include "KernelFunctions.h"
   
 // utility function to form edge between two vertices 
 // source and dest 
@@ -44,6 +46,8 @@ bool BFS(vector<vector<int>> &graph,
         visited[iter] = false; 
         dist[iter] = 0; 
         pred[iter] = -1; 
+
+       //printf("Edges Count %d\n", graph.at(iter).size());
     } 
   
     // now source is first to be visited and 
@@ -57,6 +61,8 @@ bool BFS(vector<vector<int>> &graph,
         int queueIter = queue.front(); 
         queue.pop_front(); 
         for (int iter = 0; iter < graph.at(queueIter).size(); iter++) { 
+
+             printf("Element (%d, %d) = %d\n", queueIter, iter, graph.at(queueIter)[iter]);
             if (visited[graph.at(queueIter)[iter]] == false) 
             { 
 
@@ -130,6 +136,8 @@ void BFSComputeShortedDist(vector<vector<int>> graph,
     cout << "Shortest Path Length is " << dist[dest]; 
 
     FindShortestPath(path, pred, dest);
+
+    cout << endl;
 } 
   
 // Main Program 
@@ -156,7 +164,7 @@ int main(int argc, char const *argv[])
     }
   
     // Vector of vectors to store graph
-    vector<vector<int> > verticies; 
+    vector<vector<int> > vertices; 
 // need to think about blasdf
 // balsdlfskafasdf sddfa
 // Think how to access the vector and so forth
@@ -164,25 +172,44 @@ int main(int argc, char const *argv[])
 // can we use thrust for the cu side?
 
     // Initialize vertex to correct size
-    verticies.resize(vertexSize);
+    vertices.resize(vertexSize);
 
-    // need to read in verticies
+    // need to read in vertices
   
     // Creating graph given in the above diagram. 
     // add_edge function takes adjacency list, source  
     // and destination vertex as argument and forms 
     // an edge between them. 
-    add_edge(verticies, 0, 1); 
-    add_edge(verticies, 0, 3);
-    add_edge(verticies, 1, 2); 
-    add_edge(verticies, 3, 4); 
-    add_edge(verticies, 3, 7); 
-    add_edge(verticies, 4, 5); 
-    add_edge(verticies, 4, 6); 
-    add_edge(verticies, 4, 7); 
-    add_edge(verticies, 5, 6); 
-    add_edge(verticies, 6, 7); 
 
-    BFSComputeShortedDist(verticies, source, dest, vertexSize); 
+    int totalEdges = 0;
+    totalEdges++;
+    add_edge(vertices, 0, 1); 
+    totalEdges++;
+    add_edge(vertices, 0, 3);
+    totalEdges++;
+    add_edge(vertices, 1, 2); 
+    totalEdges++;
+    add_edge(vertices, 3, 4); 
+    totalEdges++;
+    add_edge(vertices, 3, 7); 
+    totalEdges++;
+    add_edge(vertices, 4, 5); 
+    totalEdges++;
+    add_edge(vertices, 4, 6);
+    totalEdges++; 
+    add_edge(vertices, 4, 7); 
+    totalEdges++;
+    add_edge(vertices, 5, 6); 
+    totalEdges++;
+    add_edge(vertices, 6, 7); 
+
+    // CPU
+    BFSComputeShortedDist(vertices, source, dest, vertexSize); 
+
+    // GPU - these two
+    RunBFSShortestDistance(vertices, dest, source, totalEdges);
+
+    // run_nvgraph_search(8);
+
     return 0; 
 } 

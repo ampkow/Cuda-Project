@@ -23,17 +23,7 @@ __host__ cudaEvent_t get_time(void)
     cudaEventRecord(time);
 	return time;
 }
-
-// utility function to form edge between two vertices 
-// source and dest 
-// void add_edge(std::vector<std::vector<int> > &graph, int src, int dest) 
-// { 
-//     graph[src].push_back(dest); 
-
-//     graph[dest].push_back(src); 
-// } 
   
-
 __global__ void BFSThrust(int  *graph, 
                           int  *numEdges,     // arrray for number of edges for each vertex
                           int  *queue,        // queue of edges to be searched
@@ -57,6 +47,16 @@ __global__ void BFSThrust(int  *graph,
 
        //printf("Edges Count %d\n", numEdges[iter]);
    } 
+
+   for (int test = 0; test < vertexSize * maxEdges; ++test)
+   {
+       int i = test/maxEdges;
+       int j = test - (i * maxEdges);
+       int in = i * maxEdges + j;
+       printf("Index %d, %d with Value %d ...\n", test, in,  graph[i * maxEdges + j]);
+   }
+
+   printf("\n");
  
   // visited[source] = true; 
    dist[source] = 0; 
@@ -69,27 +69,41 @@ __global__ void BFSThrust(int  *graph,
    int backPointer = 1;
 
 
-//    int x = blockIdx.x * blockDim.x + threadIdx.x; //using 2-D location in matrix
-//    int y = blockIdx.y * blockDim.y + threadIdx.y;
-   //int length = gridDim.x*blockDim.x; //width of a row
-   while (pointer < totalEdges) 
+   while (pointer != totalEdges) 
    {  
        int queueIter = queue[pointer]; 
        pointer++; 
+
+       printf("Current Vertex %d: \n", queueIter);
+       printf("PTR %d, backPTR: %d\n", pointer, backPointer);
       //printf("Edges %d\n", numEdges[queueIter]);
-       for (int iter = 0; iter < numEdges[queueIter]; iter++) 
+       for (int iter = 0; iter < maxEdges; iter++) 
        { 
-           int index = iter * maxEdges + queueIter;
-           printf("Element (%d, %d) = %d\n", queueIter, iter, graph[index]);
-           if (visited[graph[index]] == false && graph[index] != -100) 
+          // int index = iter * maxEdges + queueIter;
+           int i = iter/maxEdges;
+           int j = iter - (i * maxEdges);
+
+           int index = i * maxEdges + j;
+           printf("Current PTR %d, \n", index);
+           if (graph[index] == -100)
+           {
+              // jump to next vertex
+              iter =  maxEdges;
+           }
+           else
+           {
+
+           if (visited[graph[index]] == false) 
            {    
               // printf("We inside visit\n");
-
+               printf("Element (%d, %d, %d) = %d\n", queueIter, iter, index, graph[index]);
                visited[graph[index]] = true; 
                dist[graph[index]]    = dist[queueIter] + 1; 
                pred[graph[index]]    = queueIter; 
 
                queue[backPointer] = graph[index]; 
+
+               iter = index;
                backPointer++;
  
                // Stop When finding destination
@@ -101,6 +115,8 @@ __global__ void BFSThrust(int  *graph,
                }
            } 
        } 
+
+      }
    } 
 }
 
@@ -126,36 +142,44 @@ __global__ void FindShortestPath(int *path,
 
 }
 
-int **ConvertVectorTo2D(std::vector<std::vector<int> >  &graph,
-                        int                              maxEdges)
+int *ConvertVectorTo2D(std::vector<std::vector<int> >  &graph,
+                       int                              maxEdges)
 {
-    int **h_graph;
+    int *h_graph;
     int graphSize = graph.size();
-    h_graph = new int*[graph.size()];
+    h_graph = new int[graphSize * maxEdges];
 
-    h_graph[0] = new int[graphSize * maxEdges];
+    //h_graph[0] = new int[graphSize * maxEdges];
 
-    for(int iter1 = 1; (iter1 < graph.size()); ++iter1)
-    { 
-       h_graph[iter1] = h_graph[iter1 - 1] + maxEdges;
-    }
+    // for(int iter1 = 1; (iter1 < graph.size()); ++iter1)
+    // { 
+    //    h_graph[iter1] = h_graph[iter1 - 1] + maxEdges;
+    // }
 
     for (int outIter = 0; outIter < graphSize; outIter++)
     {
        for(int iter2 = 0; (iter2 < maxEdges); ++iter2)
        {
-        if ( iter2 >= graph[outIter].size())
+        if (iter2 >= graph[outIter].size())
         {
-            h_graph[outIter][iter2] = -100;
+            h_graph[outIter * maxEdges + iter2] = -100;
         }
         else
         {
-            h_graph[outIter][iter2] = graph[outIter][iter2];
+            h_graph[outIter * maxEdges + iter2] = graph[outIter][iter2];
         }
        } 
     }
 
     return h_graph;
+}
+
+float RunBFSUsingStreams(std::vector<std::vector<int> > &graph,
+                         int                             dest,
+                         int                             source,
+                         int                             totalEdges)
+{
+
 }
 
 float RunBFSShortestDistance(std::vector<std::vector<int> > &graph,
@@ -188,10 +212,10 @@ float RunBFSShortestDistance(std::vector<std::vector<int> > &graph,
     printf("Converting Vectors of Vectors...\n");
 
     // Convert Vector of Vector to 2d array
-    int** h_graph = ConvertVectorTo2D(graph, maxEdges);
+    int* h_graph = ConvertVectorTo2D(graph, maxEdges);
 
 
-    int graphSize = sizeof(int) * graph.size() + maxEdges;
+    int graphSize = sizeof(int) * (graph.size() * maxEdges);
 
     printf("Done... %d\n", graphSize);
 
@@ -228,7 +252,7 @@ float RunBFSShortestDistance(std::vector<std::vector<int> > &graph,
     printf("After Edge Malloc \n");
 
     // allocate correctly and pass to kernel by making verticies pointers so memory on memory
-    cudaMemcpy(d_graph, h_graph[0], graphSize, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_graph, h_graph, graphSize, cudaMemcpyHostToDevice);
 
     printf("After Copy Graph \n");
 
@@ -239,7 +263,7 @@ float RunBFSShortestDistance(std::vector<std::vector<int> > &graph,
     // printf("Afer copy\n");
     // thrust::sequence(d_graph.begin(), d_graph.end());
 
-    printf("Before Kernel Call %d, %d, %d\n", h_graph[0][0], h_graph[0][1], h_graph[1][1] );
+    printf("Before Kernel Call %d, %d, %d\n", h_graph[0], h_graph[1], h_graph[1]);
 
     // BFS call
     BFSThrust<<<1,1>>>(d_graph /*thrust::raw_pointer_cast(d_graph.data())*/,

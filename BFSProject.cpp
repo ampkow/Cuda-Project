@@ -60,11 +60,11 @@ bool BFS(vector<vector<int>> &graph,
     while (!queue.empty()) {  
         int queueIter = queue.front(); 
         queue.pop_front(); 
-        for (int iter = 0; iter < graph.at(queueIter).size(); iter++) { 
-
-             printf("Element (%d, %d) = %d\n", queueIter, iter, graph.at(queueIter)[iter]);
+        for (int iter = 0; iter < graph.at(queueIter).size(); iter++) 
+        { 
             if (visited[graph.at(queueIter)[iter]] == false) 
             { 
+                printf("Element (%d, %d) = %d\n", queueIter, iter, graph.at(queueIter)[iter]);
 
                 visited[graph.at(queueIter)[iter]] = true; 
                 dist[graph.at(queueIter)[iter]]    = dist[queueIter] + 1; 

@@ -207,7 +207,7 @@ int main(int argc, char const *argv[])
     BFSComputeShortedDist(vertices, source, dest, vertexSize); 
 
     // GPU - these two
-    RunBFSShortestDistance(vertices, dest, source, totalEdges);
+    //RunBFSShortestDistance(vertices, dest, source, totalEdges);
 
     // run_nvgraph_search(8);
 

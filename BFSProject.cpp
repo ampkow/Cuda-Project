@@ -208,6 +208,7 @@ int main(int argc, char const *argv[])
 
     // GPU - these two
     //RunBFSShortestDistance(vertices, dest, source, totalEdges);
+    RunBFSUsingStreams(vertices, dest, source, totalEdges);
 
     // run_nvgraph_search(8);
 

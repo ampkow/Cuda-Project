@@ -51,7 +51,7 @@ __global__ void IterateEdges(int *edges,
         int nextVert = edges[current];
         if (visited[nextVert] == false) 
         { 
-            printf("Element (%d, %d) = %d\n", currentVertex, current, nextVert);
+            printf("Element (%d, %d) = %d with edgeCount%d\n", currentVertex, current, nextVert, edgeCount);
 
             visited[nextVert] = true; 
             dist[nextVert]    = dist[currentVertex] + 1; 
@@ -62,9 +62,14 @@ __global__ void IterateEdges(int *edges,
             // Stop When finding destination
             if (nextVert == dest) 
             {
+                printf("We won!!\n");
                 foundDest = true;
                 return; 
             }
+        }
+        else
+        {
+            printf("sfasfs\n");
         } 
     }
 }
@@ -97,6 +102,8 @@ float RunBFSUsingStreams(std::vector<std::vector<int> > &graph,
 
     int nextIndex = 0;
 
+    queue.push_back(source);
+
     // BFS algorithm  
     while (!queue.empty()) 
     {  
@@ -106,9 +113,9 @@ float RunBFSUsingStreams(std::vector<std::vector<int> > &graph,
         int edgeCount = graph.at(queueIter).size();
 
         // need to populate
-        thrust::device_vector<int> d_edges(edgeCount);
+        thrust::device_vector<int> d_edges(graph.at(queueIter));
         
-        IterateEdges<<<1,1>>>(thrust::raw_pointer_cast(d_edges.data()), 
+        IterateEdges<<<1, edgeCount>>>(thrust::raw_pointer_cast(d_edges.data()), 
                            d_dist, 
                            d_pred, 
                            d_vertexVisited,

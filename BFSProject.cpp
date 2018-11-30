@@ -97,7 +97,6 @@ void FindShortestPath(vector<int> &path,
         path.push_back(pred[pointer]); 
         pointer = pred[pointer]; 
     } 
-
       
     // printing path from source to destination 
     cout << "\nShortest Path: \n"; 
@@ -133,7 +132,7 @@ void BFSComputeShortedDist(vector<vector<int>> graph,
     path.push_back(dest);
 
     // distance from source is in distance array 
-    cout << "Shortest Path Length is " << dist[dest]; 
+    cout << "Shortest Path Length is " << dist[dest] << " \n"; 
 
     FindShortestPath(path, pred, dest);
 
@@ -204,10 +203,13 @@ int main(int argc, char const *argv[])
     add_edge(vertices, 6, 7); 
 
     // CPU
+    printf("Running BFS on CPU\n");
     BFSComputeShortedDist(vertices, source, dest, vertexSize); 
+    printf("\n");
 
     // GPU - these two
     //RunBFSShortestDistance(vertices, dest, source, totalEdges);
+    printf("Running BFS on GPU\n");
     RunBFSUsingStreams(vertices, dest, source, totalEdges);
 
     // run_nvgraph_search(8);

@@ -13,6 +13,10 @@
 // Internal Headers
 #include "KernelFunctions.h"
 
+
+__device__ bool d_foundDest;
+__device__ bool d_nextIndex;
+
 // Run BFS algorithm using thurst library
 
 // __host__ allows to run on device and host and void code duplication
@@ -23,6 +27,30 @@ __host__ cudaEvent_t get_time(void)
     cudaEventCreate(&time);
     cudaEventRecord(time);
 	return time;
+}
+
+__global__ void FindShortestPath(int *path,
+                                 int *pred,
+                                 int  dest)
+{
+    int pointer = dest;
+
+    int pathSize = 0;
+
+    while (pred[pointer] != -1) 
+    { 
+        pathSize++;
+        path[pathSize] = pred[pointer]; 
+        pointer = pred[pointer]; 
+    } 
+
+    // printing path from source to destination 
+    printf("\n Shortest Path: \n"); 
+    for (int iter = pathSize - 1; iter >= 0; iter--) 
+    {
+      printf("index %d ", path[iter]); 
+    }
+
 }
   
 // pass edge count as size to iterate through, pass current index
@@ -38,9 +66,7 @@ __global__ void IterateEdges(int *edges,
                             int  *dist, 
                             int  *pred, 
                             bool *visited,
-                            bool &foundDest, 
                             int   edgeCount, 
-                            int  &nextIndex, 
                             int   currentVertex, 
                             int   dest)
 {
@@ -57,13 +83,13 @@ __global__ void IterateEdges(int *edges,
             dist[nextVert]    = dist[currentVertex] + 1; 
             pred[nextVert]    = currentVertex; 
 
-            nextIndex = nextVert;
+           // d_nextIndex = nextVert;
 
             // Stop When finding destination
             if (nextVert == dest) 
             {
                 printf("We won!!\n");
-                foundDest = true;
+               // d_foundDest = true;
                 return; 
             }
         }
@@ -83,26 +109,40 @@ float RunBFSUsingStreams(std::vector<std::vector<int> > &graph,
     std::list<int> queue; 
 
     int vertexSize = graph.size();
-  
-    bool foundDest = false;
 
-    int numVerticies = graph.size();
+    //int arraySizeVertices = sizeof(int) * numVerticies;
 
-    int arraySizeVertices = sizeof(int) * numVerticies;
-
-    bool *d_vertexVisited;   // array to see if edges have been visited
-    int  *d_pred;            // array to store predecssors
-    int  *d_dist;            // array to store distances
+    // bool *d_vertexVisited;   // array to see if edges have been visited
+    // int  *d_pred;            // array to store predecssors
+    // int  *d_dist;            // array to store distances
 
 
-    // Allocate  Global memory
-    cudaMalloc((void**) &d_vertexVisited,  sizeof(bool) * numVerticies); //doesnt need populating
-    cudaMalloc((void**) &d_pred,           arraySizeVertices);            // doesnt
-    cudaMalloc((void**) &d_dist,           arraySizeVertices);            // doesnt
+    // // Allocate  Global memory
+    // cudaMalloc((void**) &d_vertexVisited,  sizeof(bool) * numVerticies); //doesnt need populating
+    // // cudaMalloc((void**) &d_pred,           arraySizeVertices);            // doesnt
+    // // cudaMalloc((void**) &d_dist,           arraySizeVertices);            // doesnt
 
-    int nextIndex = 0;
+    thrust::device_vector<int> visited(vertexSize);
+    thrust::device_vector<int> pred(vertexSize);
+    thrust::device_vector<int> dist(vertexSize);
+    thrust::device_vector<int> path(totalEdges);
+
+// we could use thrust fill
+    for (int iter = 0; iter < vertexSize; iter++) 
+    { 
+        visited[iter] = false; 
+        dist[iter] = 0; 
+        pred[iter] = -1; 
+
+       //printf("Edges Count %d\n", graph.at(iter).size());
+    } 
 
     queue.push_back(source);
+    visited[source] = true;
+
+    int nextVertex = 0;
+
+    bool foundDest = false;
 
     // BFS algorithm  
     while (!queue.empty()) 
@@ -115,32 +155,78 @@ float RunBFSUsingStreams(std::vector<std::vector<int> > &graph,
         // need to populate
         thrust::device_vector<int> d_edges(graph.at(queueIter));
         
-        IterateEdges<<<1, edgeCount>>>(thrust::raw_pointer_cast(d_edges.data()), 
-                           d_dist, 
-                           d_pred, 
-                           d_vertexVisited,
-                           foundDest, 
-                           edgeCount, 
-                           nextIndex, 
-                           queueIter, 
-                           dest);
+        // IterateEdges<<<1, edgeCount>>>(thrust::raw_pointer_cast(d_edges.data()), 
+        //                    d_dist, 
+        //                    d_pred, 
+        //                    d_vertexVisited,
+        //                    edgeCount, 
+        //                    queueIter, 
+        //                    dest);
 
-        queue.push_back(nextIndex);
+
+        for (int iter0 = 0; iter0 < edgeCount; iter0++)
+        {
+            int nextVert = d_edges[iter0];
+            if (visited[nextVert] == false) 
+            { 
+                printf("Element (%d, %d) = %d with edgeCount%d\n", queueIter, iter0, nextVert, edgeCount);
+    
+                visited[nextVert] = true; 
+                dist[nextVert]    = dist[queueIter] + 1; 
+                pred[nextVert]    = queueIter; 
+
+    
+                queue.push_back(nextVert);
+    
+                // Stop When finding destination
+                if (nextVert == dest) 
+                {
+                    printf("We won!!\n");
+                    foundDest = true;
+                    //return; 
+                }
+            }
+        }
+
+    //     int nextIndex = 0;
+    //    // cudaMemcpyFromSymbol(&nextIndex, "d_nextIndex", sizeof(nextIndex), 0, cudaMemcpyDeviceToHost);
+    //     printf("nextIndex %d\n", nextIndex);
+    //     queue.push_back(nextIndex);
+
+        //bool h_foundDest = false;
+
+       // cudaMemcpyFromSymbol(&h_foundDest, "d_foundDest", sizeof(h_foundDest), 0, cudaMemcpyDeviceToHost);
 
         if (foundDest)
         {
-            // Free memory
-            cudaFree(d_vertexVisited);
-            cudaFree(d_pred);
-            cudaFree(d_dist);
+            path.push_back(dest);
+
+            // FindShortestPath<<<1,1>>>(thrust::raw_pointer_cast(path.data()),
+            // thrust::raw_pointer_cast(pred.data()),
+            // dest);
+
+            int pointer = dest;
+
+            while (pred[pointer] != -1) 
+            { 
+                path.push_back(pred[pointer]); 
+                pointer = pred[pointer];
+            }       
+              
+            // printing path from source to destination 
+            std::cout << "\nShortest Path: \n"; 
+            for (int iter = path.size() - 1; iter >= 0; iter--) 
+            {
+                std::cout << path[iter] << " "; 
+            }
             return true;
         }
     } 
 
-    // Free memory
-    cudaFree(d_vertexVisited);
-    cudaFree(d_pred);
-    cudaFree(d_dist);
+    // // Free memory
+    // cudaFree(d_vertexVisited);
+    // cudaFree(d_pred);
+    // cudaFree(d_dist);
   
     return false; 
 }

@@ -203,6 +203,7 @@ int main(int argc, char const *argv[])
                totalEdges);
 
     int vertexSize = vertices.size();
+
     if (vertexSize == 0)
     {
         cout << "Graph Size of 0" << endl;
@@ -216,7 +217,7 @@ int main(int argc, char const *argv[])
     printf("\n");
 
     // GPU - One using Thrust, another making kernel calls
-    //RunBFSShortestDistance(vertices, dest, source, totalEdges);
+    // RunBFSShortestDistance(vertices, destination, source, totalEdges);
     printf("Running BFS on GPU\n");
     RunBFSUsingThrust(vertices, destination, source, totalEdges);
 

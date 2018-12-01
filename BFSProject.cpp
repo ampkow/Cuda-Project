@@ -1,6 +1,8 @@
 // Sources 
 // https://www.geeksforgeeks.org/shortest-path-unweighted-graph/
 // https://en.wikipedia.org/wiki/Breadth-first_search
+// https://snap.stanford.edu/data/
+// https://docs.nvidia.com/cuda/nvgraph/index.html
 
 // Author: Adam Piorkowski
 // Runs BFS for shortest path using CPU and GPU algorithms
@@ -23,33 +25,33 @@ void createNewEdge(vector<vector<int> > &graph, int src, int dest)
     graph[dest].push_back(src); 
 } 
   
-// Runs BFS and calculates distances from src to the dest
+// Runs BFS and calculates distances from source Vertex to the destination Vertex
 bool BFS(vector<vector<int>> &graph, 
-         int                  src, 
-         int                  dest, 
+         int                  source, 
+         int                  destination, 
          int                  vertexSize, 
-         vector<int>         &pred, 
-         vector<int>         &dist) 
+         vector<int>         &predecessors, 
+         vector<int>         &distances) 
 { 
     // List of next vertices to be scanned
     list<int> queue; 
   
-    vector<bool> visited;
+    vector<bool> visitedVertices;
 
-    visited.resize(vertexSize); 
+    visitedVertices.resize(vertexSize); 
   
 
     for (int iter = 0; iter < vertexSize; iter++) 
     { 
-        visited[iter] = false; 
-        dist[iter] = 0; 
-        pred[iter] = -1; 
+        visitedVertices[iter] = false; 
+        distances[iter] = 0; 
+        predecessors[iter] = -1; 
 
     } 
   
-    visited[src] = true; 
-    dist[src] = 0; 
-    queue.push_back(src); 
+    visitedVertices[source] = true; 
+    distances[source] = 0; 
+    queue.push_back(source); 
   
     // BFS algorithm  
     while (!queue.empty()) {  
@@ -57,19 +59,20 @@ bool BFS(vector<vector<int>> &graph,
         queue.pop_front(); 
         for (int iter = 0; iter < graph.at(queueIter).size(); iter++) 
         { 
-            if (visited[graph.at(queueIter)[iter]] == false) 
+            int currVert = graph.at(queueIter)[iter];
+            if (visitedVertices[currVert] == false) 
             { 
-                printf("Element (%d, %d) = %d\n", queueIter, iter, graph.at(queueIter)[iter]);
+                printf("Element (%d, %d) = %d\n", queueIter, iter, currVert);
 
-                visited[graph.at(queueIter)[iter]] = true; 
-                dist[graph.at(queueIter)[iter]]    = dist[queueIter] + 1; 
-                pred[graph.at(queueIter)[iter]]    = queueIter; 
+                visitedVertices[currVert] = true; 
+                distances[currVert]       = distances[queueIter] + 1; 
+                predecessors[currVert]    = queueIter; 
 
 
-                queue.push_back(graph.at(queueIter)[iter]); 
+                queue.push_back(currVert); 
   
                 // Stop When finding destination
-                if (graph[queueIter][iter] == dest) 
+                if (currVert == destination) 
                 {
                    return true; 
                 }
@@ -81,52 +84,52 @@ bool BFS(vector<vector<int>> &graph,
 } 
 
 void FindShortestPath(vector<int> &path,
-                      vector<int> &pred,
+                      vector<int> &predecessors,
                       int          dest)
 {
     int pointer = dest;
  
 
-    while (pred[pointer] != -1) 
+    while (predecessors[pointer] != -1) 
     { 
-        path.push_back(pred[pointer]); 
-        pointer = pred[pointer]; 
+        path.push_back(predecessors[pointer]); 
+        pointer = predecessors[pointer]; 
     } 
       
     // printing path from source to destination 
-    cout << "\nShortest Path: \n"; 
+    printf("\nShortest Path: \n"); 
     for (int iter = path.size() - 1; iter >= 0; iter--) 
     {
-        cout << path[iter] << " "; 
+        printf("%d ", path[iter]); 
     }
 }
   
 void BFSComputeShortedDist(vector<vector<int>> graph, 
                            int source,  
-                           int dest, 
+                           int destination, 
                            int vertexSize) 
 { 
-    std::vector<int> pred;
-    std::vector<int> dist;
+    std::vector<int> predecessors;
+    std::vector<int> distances;
 
-    pred.resize(vertexSize);
-    dist.resize(vertexSize);
+    predecessors.resize(vertexSize);
+    distances.resize(vertexSize);
   
-    if (BFS(graph, source, dest, vertexSize, pred, dist) == false) 
+    if (BFS(graph, source, destination, vertexSize, predecessors, distances) == false) 
     { 
-        cout << "Shortest Path not found"; 
+        printf("Shortest Path not found"); 
         return; 
     } 
 
     std::vector<int> path;
-    path.push_back(dest);
+    path.push_back(destination);
 
     // distance from source is in distance array 
-    cout << "Shortest Path Length is " << dist[dest] << " \n"; 
+    printf("Shortest Path Length is %d \n", distances[destination]); 
 
-    FindShortestPath(path, pred, dest);
+    FindShortestPath(path, predecessors, destination);
 
-    cout << endl;
+    printf("\n");
 } 
 
   // Reads in vertices and adds them to vector of vectors
@@ -212,7 +215,7 @@ int main(int argc, char const *argv[])
     BFSComputeShortedDist(vertices, source, destination, vertexSize); 
     printf("\n");
 
-    // GPU - these two
+    // GPU - One using Thrust, another making kernel calls
     //RunBFSShortestDistance(vertices, dest, source, totalEdges);
     printf("Running BFS on GPU\n");
     RunBFSUsingThrust(vertices, destination, source, totalEdges);

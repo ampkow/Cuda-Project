@@ -52,9 +52,9 @@ __global__ void FindShortestPath(int *path,
 
 // Run BFS algorithm using thurst library
 float RunBFSUsingThrust(std::vector<std::vector<int> > &graph,
-                         int                             dest,
-                         int                             source,
-                         int                             totalEdges)
+                         int                            destination,
+                         int                            source,
+                         int                            totalEdges)
 {
     std::list<int> queue; 
 
@@ -99,7 +99,7 @@ float RunBFSUsingThrust(std::vector<std::vector<int> > &graph,
                 queue.push_back(nextVert);
     
                 // Stop When finding destination
-                if (nextVert == dest) 
+                if (nextVert == destination) 
                 {
                     foundDest = true;
                     break; 
@@ -109,9 +109,9 @@ float RunBFSUsingThrust(std::vector<std::vector<int> > &graph,
 
         if (foundDest)
         {
-            d_path.push_back(dest);
+            d_path.push_back(destination);
 
-            int pointer = dest;
+            int pointer = destination;
 
             int pathSize = 1;
 
@@ -140,6 +140,7 @@ float RunBFSUsingThrust(std::vector<std::vector<int> > &graph,
 }
 
  // Runs BFS on a generated graph and prints out
+ // Still need to feed graph in correctly
  float run_nvgraph_search(int numVerticies)
  {
      // Graph is in CSR format

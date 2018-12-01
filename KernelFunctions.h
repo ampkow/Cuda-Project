@@ -8,7 +8,7 @@ float RunBFSShortestDistance(std::vector<std::vector<int> > &graph,
                              int                             totalEdges);
 
 
-float RunBFSUsingStreams(std::vector<std::vector<int> > &graph,
+float RunBFSUsingThrust(std::vector<std::vector<int> > &graph,
                         int                             dest,
                              int                             source,
                              int                             totalEdges);

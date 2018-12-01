@@ -1,6 +1,7 @@
 // Make Kernel Functions inside of here
 #include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
+#include <thrust/fill.h>
 
 
 #include "nvgraph.h"
@@ -13,11 +14,6 @@
 // Internal Headers
 #include "KernelFunctions.h"
 
-
-__device__ bool d_foundDest;
-__device__ bool d_nextIndex;
-
-// Run BFS algorithm using thurst library
 
 // __host__ allows to run on device and host and void code duplication
 // taken from global_memory.cu
@@ -53,94 +49,28 @@ __global__ void FindShortestPath(int *path,
 
 }
   
-// pass edge count as size to iterate through, pass current index
-// return value next vect.atqueuIter pass in and pass back queueIter[iter]
-// vec  = graph.at(queueIter)
-// dist = just to set values
-// pred = just to set values
-// visited
-// bool = if found
-// retun val for push back 
-// dest need to be found
-__global__ void IterateEdges(int *edges, 
-                            int  *dist, 
-                            int  *pred, 
-                            bool *visited,
-                            int   edgeCount, 
-                            int   currentVertex, 
-                            int   dest)
-{
-    int current = threadIdx.x + blockIdx.x * blockDim.x ;
 
-    while (current < edgeCount)
-    {
-        int nextVert = edges[current];
-        if (visited[nextVert] == false) 
-        { 
-            printf("Element (%d, %d) = %d with edgeCount%d\n", currentVertex, current, nextVert, edgeCount);
-
-            visited[nextVert] = true; 
-            dist[nextVert]    = dist[currentVertex] + 1; 
-            pred[nextVert]    = currentVertex; 
-
-           // d_nextIndex = nextVert;
-
-            // Stop When finding destination
-            if (nextVert == dest) 
-            {
-                printf("We won!!\n");
-               // d_foundDest = true;
-                return; 
-            }
-        }
-        else
-        {
-            printf("sfasfs\n");
-        } 
-    }
-}
-
-float RunBFSUsingStreams(std::vector<std::vector<int> > &graph,
+// Run BFS algorithm using thurst library
+float RunBFSUsingThrust(std::vector<std::vector<int> > &graph,
                          int                             dest,
                          int                             source,
                          int                             totalEdges)
 {
-
     std::list<int> queue; 
 
     int vertexSize = graph.size();
 
-    //int arraySizeVertices = sizeof(int) * numVerticies;
+    thrust::device_vector<int> d_visited(vertexSize);
+    thrust::device_vector<int> d_pred(vertexSize);
+    thrust::device_vector<int> d_dist(vertexSize);
+    thrust::device_vector<int> d_path(totalEdges);
 
-    // bool *d_vertexVisited;   // array to see if edges have been visited
-    // int  *d_pred;            // array to store predecssors
-    // int  *d_dist;            // array to store distances
-
-
-    // // Allocate  Global memory
-    // cudaMalloc((void**) &d_vertexVisited,  sizeof(bool) * numVerticies); //doesnt need populating
-    // // cudaMalloc((void**) &d_pred,           arraySizeVertices);            // doesnt
-    // // cudaMalloc((void**) &d_dist,           arraySizeVertices);            // doesnt
-
-    thrust::device_vector<int> visited(vertexSize);
-    thrust::device_vector<int> pred(vertexSize);
-    thrust::device_vector<int> dist(vertexSize);
-    thrust::device_vector<int> path(totalEdges);
-
-// we could use thrust fill
-    for (int iter = 0; iter < vertexSize; iter++) 
-    { 
-        visited[iter] = false; 
-        dist[iter] = 0; 
-        pred[iter] = -1; 
-
-       //printf("Edges Count %d\n", graph.at(iter).size());
-    } 
+    thrust::fill(d_visited.begin(), d_visited.end(), false);
+    thrust::fill(d_dist.begin(), d_dist.end(), 0);
+    thrust::fill(d_pred.begin(), d_pred.end(), -1);
 
     queue.push_back(source);
-    visited[source] = true;
-
-    int nextVertex = 0;
+    d_visited[source] = true;
 
     bool foundDest = false;
 
@@ -152,82 +82,60 @@ float RunBFSUsingStreams(std::vector<std::vector<int> > &graph,
 
         int edgeCount = graph.at(queueIter).size();
 
-        // need to populate
+        // need to populate with vector of edges for current vertex
         thrust::device_vector<int> d_edges(graph.at(queueIter));
-        
-        // IterateEdges<<<1, edgeCount>>>(thrust::raw_pointer_cast(d_edges.data()), 
-        //                    d_dist, 
-        //                    d_pred, 
-        //                    d_vertexVisited,
-        //                    edgeCount, 
-        //                    queueIter, 
-        //                    dest);
-
 
         for (int iter0 = 0; iter0 < edgeCount; iter0++)
         {
             int nextVert = d_edges[iter0];
-            if (visited[nextVert] == false) 
+            if (d_visited[nextVert] == false) 
             { 
-                printf("Element (%d, %d) = %d with edgeCount%d\n", queueIter, iter0, nextVert, edgeCount);
+                printf("Element (%d, %d) = %d \n", queueIter, iter0, nextVert);
     
-                visited[nextVert] = true; 
-                dist[nextVert]    = dist[queueIter] + 1; 
-                pred[nextVert]    = queueIter; 
-
+                d_visited[nextVert] = true; 
+                d_dist[nextVert]    = d_dist[queueIter] + 1; 
+                d_pred[nextVert]    = queueIter; 
     
                 queue.push_back(nextVert);
     
                 // Stop When finding destination
                 if (nextVert == dest) 
                 {
-                    printf("We won!!\n");
                     foundDest = true;
-                    //return; 
+                    break; 
                 }
             }
         }
 
-    //     int nextIndex = 0;
-    //    // cudaMemcpyFromSymbol(&nextIndex, "d_nextIndex", sizeof(nextIndex), 0, cudaMemcpyDeviceToHost);
-    //     printf("nextIndex %d\n", nextIndex);
-    //     queue.push_back(nextIndex);
-
-        //bool h_foundDest = false;
-
-       // cudaMemcpyFromSymbol(&h_foundDest, "d_foundDest", sizeof(h_foundDest), 0, cudaMemcpyDeviceToHost);
-
         if (foundDest)
         {
-            path.push_back(dest);
-
-            // FindShortestPath<<<1,1>>>(thrust::raw_pointer_cast(path.data()),
-            // thrust::raw_pointer_cast(pred.data()),
-            // dest);
+            d_path.push_back(dest);
 
             int pointer = dest;
 
-            while (pred[pointer] != -1) 
+            int pathSize = 1;
+
+            while (d_pred[pointer] != -1) 
             { 
-                path.push_back(pred[pointer]); 
-                pointer = pred[pointer];
+               pathSize++;
+               d_path.push_back(d_pred[pointer]); 
+               pointer = d_pred[pointer];
             }       
               
             // printing path from source to destination 
-            std::cout << "\nShortest Path: \n"; 
-            for (int iter = path.size() - 1; iter >= 0; iter--) 
+            printf("\nShortest Path Length is %d\n", pathSize); 
+            int count = 0;
+            int iter = d_path.size() - 1;
+            while (count < pathSize) 
             {
-                std::cout << path[iter] << " "; 
+                std::cout << d_path[iter] << " "; 
+                count++;
+                iter--;
             }
+
             return true;
         }
     } 
-
-    // // Free memory
-    // cudaFree(d_vertexVisited);
-    // cudaFree(d_pred);
-    // cudaFree(d_dist);
-  
     return false; 
 }
 
@@ -261,11 +169,6 @@ float RunBFSUsingStreams(std::vector<std::vector<int> > &graph,
          host_dest[destIter] = host_offsets[destIter + 1];
      }
 
-     // source_offsets Array of size nvertices+1, where i element equals to the number of the first edge for this vertex in the list of all outgoing edges in the destination_indices array. Last element stores total number of edges
-     //     int source_offsets_h[] = {0, 1, 3, 4, 6, 8, 10, 12};
-     //     int destination_indices_h[] = {5, 0, 2, 0, 4, 5, 2, 3, 3, 4, 1, 5};
-     // destination_indices 	Array of size nedges, where each value designates destanation vertex for an edge. 
-     
      // Last Value of Offsets equal number of edges in graph
      host_offsets[verticies] = num_edges;
  

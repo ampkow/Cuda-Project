@@ -1,14 +1,18 @@
-NumVert = 8
-Source  = 0
-Dest    = 7
+14 -1
+0 -2
+6 -3
 
-Edge = 0,1
-Edge = 0,3
-Edge = 1,2
-Edge = 3,4
-Edge = 3,7
-Edge = 4,5
-Edge = 4,6
-Edge = 4,7
-Edge = 5,6
-Edge = 6,7
+0 1
+0 3
+1 2
+3 4
+3 9
+4 5
+4 6
+4 7
+5 6
+6 7
+7 8
+7 9
+9 2
+9 0

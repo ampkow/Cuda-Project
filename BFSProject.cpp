@@ -2,25 +2,28 @@
 // https://www.geeksforgeeks.org/shortest-path-unweighted-graph/
 // https://en.wikipedia.org/wiki/Breadth-first_search
 
+// Author: Adam Piorkowski
+// Runs BFS for shortest path using CPU and GPU algorithms
+
 
 #include <list> 
 #include <vector> 
 #include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
 using namespace std; 
 
 #include "KernelFunctions.h"
   
-// utility function to form edge between two vertices 
-// source and dest 
-void add_edge(vector<vector<int> > &graph, int src, int dest) 
+// Adds new edges to the graph
+void createNewEdge(vector<vector<int> > &graph, int src, int dest) 
 { 
     graph[src].push_back(dest); 
     graph[dest].push_back(src); 
 } 
   
-// a modified version of BFS that stores predecessor 
-// of each vertex in array p 
-// and its distance from source in array d 
+// Runs BFS and calculates distances from src to the dest
 bool BFS(vector<vector<int>> &graph, 
          int                  src, 
          int                  dest, 
@@ -28,14 +31,9 @@ bool BFS(vector<vector<int>> &graph,
          vector<int>         &pred, 
          vector<int>         &dist) 
 { 
-    // a queue to maintain queue of vertices whose 
-    // adjacency list is to be scanned as per normal 
-    // DFS algorithm 
+    // List of next vertices to be scanned
     list<int> queue; 
   
-    // boolean array visited[] which stores the 
-    // information whether ith vertex is reached 
-    // at least once in the Breadth first search 
     vector<bool> visited;
 
     visited.resize(vertexSize); 
@@ -47,11 +45,8 @@ bool BFS(vector<vector<int>> &graph,
         dist[iter] = 0; 
         pred[iter] = -1; 
 
-       //printf("Edges Count %d\n", graph.at(iter).size());
     } 
   
-    // now source is first to be visited and 
-    // distance from source to itself should be 0 
     visited[src] = true; 
     dist[src] = 0; 
     queue.push_back(src); 
@@ -106,16 +101,11 @@ void FindShortestPath(vector<int> &path,
     }
 }
   
-// utility function to print the shortest distance  
-// between source vertex and destination vertex 
 void BFSComputeShortedDist(vector<vector<int>> graph, 
                            int source,  
                            int dest, 
                            int vertexSize) 
 { 
-    // predecessor[i] array stores predecessor of 
-    // i and distance array stores distance of i
-    // from s 
     std::vector<int> pred;
     std::vector<int> dist;
 
@@ -138,79 +128,94 @@ void BFSComputeShortedDist(vector<vector<int>> graph,
 
     cout << endl;
 } 
+
+  // Reads in vertices and adds them to vector of vectors
+void ReadInFile(std::string          fileName,
+               vector<vector<int> > &graph,
+               int                   &destination,
+               int                   &source,
+               int                   &totalEdges)
+{
+
+    printf("FileName: %s \n", fileName.c_str());
+    std::ifstream inputFile(fileName);
+
+    // Read in edges
+    int val1;
+    int val2;
+
+
+    while (inputFile >> val1 >> val2)
+    {
+        if (val2 == -1)
+        {
+            graph.resize(val1);
+        }
+        else if (val2 == -2)
+        {
+            source = val1;
+        }
+        else if (val2 == -3)
+        {
+            destination = val1;
+        }
+        else
+        {
+             totalEdges++;
+             createNewEdge(graph, val1, val2); 
+        }
+    }
+}
   
 // Main Program 
 int main(int argc, char const *argv[]) 
 { 
-    // Default Vertex Size
-    int vertexSize = 8;  
-    int source     = 0;
-    int dest       = 7;
 
+    std::string graphFile = "";
     if (argc >= 2)
     {
-        vertexSize = atoi(argv[1]);
+        graphFile = argv[1];
     }
-
-    if (argc >= 3)
+    else
     {
-        source = atoi(argv[2]);
-    }
+        cout << "Specify a file to define the graph!!!" << endl;
 
-    if (argc >= 4)
-    {
-        dest = atoi(argv[3]);
+        return 0;
     }
   
     // Vector of vectors to store graph
     vector<vector<int> > vertices; 
-// need to think about blasdf
-// balsdlfskafasdf sddfa
-// Think how to access the vector and so forth
-// 
-// can we use thrust for the cu side?
 
-    // Initialize vertex to correct size
-    vertices.resize(vertexSize);
+  
+
+    int destination = 0;
+    int source      = 0;
+    int totalEdges  = 0;
 
     // need to read in vertices
-  
-    // Creating graph given in the above diagram. 
-    // add_edge function takes adjacency list, source  
-    // and destination vertex as argument and forms 
-    // an edge between them. 
+    ReadInFile(graphFile,
+               vertices,
+               destination,
+               source,
+               totalEdges);
 
-    int totalEdges = 0;
-    totalEdges++;
-    add_edge(vertices, 0, 1); 
-    totalEdges++;
-    add_edge(vertices, 0, 3);
-    totalEdges++;
-    add_edge(vertices, 1, 2); 
-    totalEdges++;
-    add_edge(vertices, 3, 4); 
-    totalEdges++;
-    add_edge(vertices, 3, 7); 
-    totalEdges++;
-    add_edge(vertices, 4, 5); 
-    totalEdges++;
-    add_edge(vertices, 4, 6);
-    totalEdges++; 
-    add_edge(vertices, 4, 7); 
-    totalEdges++;
-    add_edge(vertices, 5, 6); 
-    totalEdges++;
-    add_edge(vertices, 6, 7); 
+    int vertexSize = vertices.size();
+    if (vertexSize == 0)
+    {
+        cout << "Graph Size of 0" << endl;
+        return 0;
+    }
+
 
     // CPU
     printf("Running BFS on CPU\n");
-    BFSComputeShortedDist(vertices, source, dest, vertexSize); 
+    BFSComputeShortedDist(vertices, source, destination, vertexSize); 
     printf("\n");
 
     // GPU - these two
     //RunBFSShortestDistance(vertices, dest, source, totalEdges);
     printf("Running BFS on GPU\n");
-    RunBFSUsingStreams(vertices, dest, source, totalEdges);
+    RunBFSUsingThrust(vertices, destination, source, totalEdges);
 
     // run_nvgraph_search(8);
 

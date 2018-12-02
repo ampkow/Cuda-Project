@@ -217,9 +217,10 @@ int main(int argc, char const *argv[])
     printf("\n");
 
     // GPU - One using Thrust, another making kernel calls
-    // RunBFSShortestDistance(vertices, destination, source, totalEdges);
+    RunBFSShortestDistance(vertices, destination, source, totalEdges);
     printf("Running BFS on GPU\n");
-    RunBFSUsingThrust(vertices, destination, source, totalEdges);
+    // RunBFSUsingStreams(vertices, destination, source, totalEdges); doesn't work
+    //RunBFSUsingThrust(vertices, destination, source, totalEdges);
 
     // run_nvgraph_search(8);
 

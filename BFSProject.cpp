@@ -1,4 +1,5 @@
 // Sources 
+// Using basic BFS algorithm defined from websites below
 // https://www.geeksforgeeks.org/shortest-path-unweighted-graph/
 // https://en.wikipedia.org/wiki/Breadth-first_search
 
@@ -14,6 +15,7 @@
 #include <string>
 using namespace std; 
 
+// Has Kernel Functionality
 #include "KernelFunctions.h"
   
 // Adds new edges to the graph
@@ -23,7 +25,7 @@ void createNewEdge(vector<vector<int> > &graph, int src, int dest)
     graph[dest].push_back(src); 
 } 
   
-// Runs BFS and calculates distances from source Vertex to the destination Vertex
+// Runs BFS and calculates distances
 bool BFS(vector<vector<int>> &graph, 
          int                  source, 
          int                  destination, 
@@ -31,43 +33,42 @@ bool BFS(vector<vector<int>> &graph,
          vector<int>         &predecessors, 
          vector<int>         &distances) 
 { 
-    // List of next vertices to be scanned
-    list<int> queue; 
+    
+    list<int> nextVertList; 
   
     vector<bool> visitedVertices;
 
-    visitedVertices.resize(vertexSize); 
-  
+    visitedVertices.resize(vertexSize);  
 
     for (int iter = 0; iter < vertexSize; iter++) 
     { 
         visitedVertices[iter] = false; 
         distances[iter] = 0; 
         predecessors[iter] = -1; 
-
     } 
   
     visitedVertices[source] = true; 
     distances[source] = 0; 
-    queue.push_back(source); 
+    nextVertList.push_back(source); 
   
-    // BFS algorithm  
-    while (!queue.empty()) {  
-        int queueIter = queue.front(); 
-        queue.pop_front(); 
-        for (int iter = 0; iter < graph.at(queueIter).size(); iter++) 
+    // BFS 
+    while (!nextVertList.empty()) 
+    {  
+        int currVertIter = nextVertList.front(); 
+        nextVertList.pop_front(); 
+
+        for (int iter = 0; iter < graph.at(currVertIter).size(); iter++) 
         { 
-            int currVert = graph.at(queueIter)[iter];
+            int currVert = graph.at(currVertIter)[iter];
             if (visitedVertices[currVert] == false) 
             { 
-                printf("Element (%d, %d) = %d\n", queueIter, iter, currVert);
+                printf("Element (%d, %d) = %d\n", currVertIter, iter, currVert);
 
                 visitedVertices[currVert] = true; 
-                distances[currVert]       = distances[queueIter] + 1; 
-                predecessors[currVert]    = queueIter; 
+                distances[currVert]       = distances[currVertIter] + 1; 
+                predecessors[currVert]    = currVertIter; 
 
-
-                queue.push_back(currVert); 
+                nextVertList.push_back(currVert); 
   
                 // Stop When finding destination
                 if (currVert == destination) 
@@ -87,14 +88,13 @@ void FindShortestPath(vector<int> &path,
 {
     int pointer = dest;
  
-
     while (predecessors[pointer] != -1) 
     { 
         path.push_back(predecessors[pointer]); 
         pointer = predecessors[pointer]; 
     } 
       
-    // printing path from source to destination 
+    // printing path from end of path to source
     printf("\nShortest Path: \n"); 
     for (int iter = path.size() - 1; iter >= 0; iter--) 
     {
@@ -122,7 +122,6 @@ void BFSComputeShortedDist(vector<vector<int>> graph,
     std::vector<int> path;
     path.push_back(destination);
 
-    // distance from source is in distance array 
     printf("Shortest Path Length is %d \n", distances[destination]); 
 
     FindShortestPath(path, predecessors, destination);
@@ -179,7 +178,7 @@ int main(int argc, char const *argv[])
     }
     else
     {
-        cout << "Specify a file to define the graph!!!" << endl;
+        printf("Specify a file to define the graph!!! \n");
 
         return 0;
     }
@@ -204,7 +203,7 @@ int main(int argc, char const *argv[])
 
     if (vertexSize == 0)
     {
-        cout << "Graph Size of 0" << endl;
+        printf("Graph Size of 0 \n");
         return 0;
     }
 
@@ -218,7 +217,6 @@ int main(int argc, char const *argv[])
     printf("Running BFS on GPU\n");
     RunBFSShortestDistance(vertices, destination, source, totalEdges);
     RunBFSUsingThrust(vertices, destination, source, totalEdges);
-
 
     return 0; 
 } 

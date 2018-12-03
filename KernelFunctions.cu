@@ -56,10 +56,9 @@ __global__ void FindShortestPath(int *path,
 
 }
 
-// Option 1
 __global__ void BFSAlgorithm(int  *graph, 
                              int  *numEdges,     // arrray for number of edges for each vertex
-                             int  *nextVertList,        // queue of edges to be searched
+                             int  *nextVertList, // List of edges to be searched
                              bool *visited,      // array to see if edges have been visited
                              int   source,
                              int   dest,

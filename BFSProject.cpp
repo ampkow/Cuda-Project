@@ -15,7 +15,7 @@
 #include <string>
 using namespace std; 
 
-// Has Kernel Functionality
+// Has Kernel Functionality for Cuda
 #include "KernelFunctions.h"
   
 // Adds new edges to the graph

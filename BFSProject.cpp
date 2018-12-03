@@ -1,8 +1,6 @@
 // Sources 
 // https://www.geeksforgeeks.org/shortest-path-unweighted-graph/
 // https://en.wikipedia.org/wiki/Breadth-first_search
-// https://snap.stanford.edu/data/
-// https://docs.nvidia.com/cuda/nvgraph/index.html
 
 // Author: Adam Piorkowski
 // Runs BFS for shortest path using CPU and GPU algorithms
@@ -217,12 +215,10 @@ int main(int argc, char const *argv[])
     printf("\n");
 
     // GPU - One using Thrust, another making kernel calls
-    RunBFSShortestDistance(vertices, destination, source, totalEdges);
     printf("Running BFS on GPU\n");
-    // RunBFSUsingStreams(vertices, destination, source, totalEdges); doesn't work
-    //RunBFSUsingThrust(vertices, destination, source, totalEdges);
+    RunBFSShortestDistance(vertices, destination, source, totalEdges);
+    RunBFSUsingThrust(vertices, destination, source, totalEdges);
 
-    // run_nvgraph_search(8);
 
     return 0; 
 } 

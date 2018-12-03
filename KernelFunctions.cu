@@ -70,9 +70,18 @@ __global__ void BFSThrust(int  *graph,
     int   maxEdges,
     int  *pred,
     int  *dist,
-    bool  &found,
-    int   totalEdges)    // Total number of edges in the graph
+    int   totalEdges,
+    volatile bool *found)    // Total number of edges in the graph
 {
+
+    volatile __shared__ bool foundDest;
+
+    // initialize shared status
+    if (threadIdx.x == 0) 
+    {
+        foundDest = *found;
+    }
+    __syncthreads();
 
     //printf("We inside kernel %d, %d, %d\n", graph[0 + 0 + maxEdges], graph[2 + 2 + maxEdges], graph[1 + 1 + maxEdges]);
     for (int iter = 0; iter < vertexSize; iter++) 
@@ -84,16 +93,6 @@ __global__ void BFSThrust(int  *graph,
         //printf("Edges Count %d\n", numEdges[iter]);
     } 
 
-    for (int test = 0; test < vertexSize * maxEdges; ++test)
-    {
-        int i = test/maxEdges;
-        int j = test - (i * maxEdges);
-        int in = i * maxEdges + j;
-        printf("Index %d, %d with Value %d ...\n", test, in,  graph[i * maxEdges + j]);
-    }
-
-    printf("\n");
-
     visited[source] = true; 
     dist[source] = 0; 
     queue[0] = source; 
@@ -104,8 +103,8 @@ __global__ void BFSThrust(int  *graph,
     int pointer     = 0;
     int backPointer = 1;
 
-    printf("Total Edges %d, maxEdges%d \n", totalEdges, maxEdges);
-    while (pointer != totalEdges) 
+    printf("Total Edges %d, maxEdges%d looking for dest %d \n", totalEdges, maxEdges, dest);
+    while (pointer != totalEdges && !foundDest) 
     {  
         int queueIter = queue[pointer]; 
         int iter = maxEdges * pointer;
@@ -124,12 +123,12 @@ __global__ void BFSThrust(int  *graph,
             int j = iter - (i * maxEdges);
 
             int index = i * maxEdges + j;
-            printf("Current PTR %d, \n", index);
+            //printf("Current PTR %d, \n", index);
             if (graph[index] == -100)
             {
                 // jump to next vertex
                 count =  maxEdges;
-                printf("Next Pointer %d,  %d\n", pointer, queue[pointer] );
+                //printf("Next Pointer %d,  %d\n", pointer, queue[pointer] );
             }
             else
             {
@@ -150,7 +149,7 @@ __global__ void BFSThrust(int  *graph,
                     // Stop When finding destination
                     if (graph[index] == dest) 
                     {
-                        found =  true; 
+                        foundDest = true;
                         printf("WE WON!!!!\n");
                     }
                 } 
@@ -158,7 +157,13 @@ __global__ void BFSThrust(int  *graph,
             count++;
             iter++;
         }
-    } 
+    }
+
+    if (threadIdx.x == 0 && *found) 
+    {
+        foundDest = true;
+    }
+    __syncthreads(); 
 }
 
 // Option 1
@@ -233,6 +238,7 @@ float RunBFSShortestDistance(std::vector<std::vector<int> > &graph,
     printf("Done... %d\n", graphSize);
 
     bool *d_vertexVisited;   // array to see if edges have been visited
+    bool *d_found;           // Found Destination
     int  *d_numEdges;        // arrray for number of edges for each vertex
     int  *d_edgeQueue;       // queue of edges to be searched
     int  *d_pred;            // array to store predecssors
@@ -248,6 +254,7 @@ float RunBFSShortestDistance(std::vector<std::vector<int> > &graph,
 
     // Allocate  Global memory
     cudaMalloc((void**) &d_vertexVisited,  sizeof(bool) * numVerticies); //doesnt need populating
+    cudaMalloc((void**) &d_found,          sizeof(bool));                 
     cudaMalloc((void**) &d_numEdges,       arraySizeVertices);            // does
     cudaMalloc((void**) &d_edgeQueue,      arraySizeEdges);            // doesnt
     cudaMalloc((void**) &d_pred,           arraySizeVertices);            // doesnt
@@ -277,7 +284,7 @@ float RunBFSShortestDistance(std::vector<std::vector<int> > &graph,
     printf("Before Kernel Call %d, %d, %d\n", h_graph[0], h_graph[1], h_graph[1]);
 
     // BFS call
-    BFSThrust<<<1,1>>>(d_graph /*thrust::raw_pointer_cast(d_graph.data())*/,
+    BFSThrust<<<numVerticies,1>>>(d_graph /*thrust::raw_pointer_cast(d_graph.data())*/,
                    d_numEdges,
                    d_edgeQueue, 
                    d_vertexVisited, 
@@ -287,14 +294,17 @@ float RunBFSShortestDistance(std::vector<std::vector<int> > &graph,
                    maxEdges,
                    d_pred,
                    d_dist,
-                   foundDest,
-                   totalEdges);
+                   totalEdges,
+                   d_found);
 
 
     printf("After Kernel Call\n");
     cudaDeviceSynchronize();
 
+    cudaMemcpy((void**)foundDest, d_found, sizeof(bool), cudaMemcpyDeviceToHost);
+
     cudaFree(d_vertexVisited);
+    cudaFree(d_found);
     cudaFree(d_numEdges);
     cudaFree(d_edgeQueue);
     cudaFree(d_pred);
@@ -303,149 +313,12 @@ float RunBFSShortestDistance(std::vector<std::vector<int> > &graph,
     free(h_numEdges);
     //free(vertices);
 
-    return 0.0;
-}
-
-// Option 2
-
-__device__ void FillVector(int *vector, int current, int val)
-{
-    vector[current] = val;
-}
-
-
-// pass edge count as size to iterate through, pass current index
-// return value next vect.atqueuIter pass in and pass back queueIter[iter]
-// vec  = graph.at(queueIter)
-// dist = just to set values
-// pred = just to set values
-// visited
-// bool = if found
-// retun val for push back 
-// dest need to be found
-__global__ void IterateEdges(int *edges, 
-    int  *dist, 
-    int  *pred, 
-    bool *visited,
-    int  *nextIndex, 
-    bool &foundDest, 
-    int   edgeCount, 
-    int   currentVertex, 
-    int   dest)
-{
-    int current = threadIdx.x + blockIdx.x * blockDim.x;
-
-    FillVector(nextIndex, current, -1);
-
-    while (current < edgeCount)
+    if (foundDest)
     {
-        int nextVert = edges[current];
-        if (visited[nextVert] == false) 
-        { 
-            printf("Element (%d, %d) = %d with edgeCount%d\n", currentVertex, current, nextVert, edgeCount);
-
-            visited[nextVert] = true; 
-            dist[nextVert]    = dist[currentVertex] + 1; 
-            pred[nextVert]    = currentVertex; 
-
-            nextIndex[current] = nextVert;
-
-            // Stop When finding destination
-            if (nextVert == dest) 
-            {
-                printf("We won!!\n");
-                foundDest = true;
-                return; 
-            }
-        }
+        //todo find shortest path
     }
-}
 
-// Option 2
-float RunBFSUsingStreams(std::vector<std::vector<int> > &graph,
-    int                             dest,
-    int                             source,
-    int                             totalEdges)
-{
-
-    std::list<int> queue; 
-
-    int vertexSize = graph.size();
-
-    bool foundDest = false;
-
-    int numVerticies = graph.size();
-
-    int arraySizeVertices = sizeof(int) * numVerticies;
-
-    int *h_nextIndex;
-
-    h_nextIndex = (int *) malloc(arraySizeVertices);
-
-    bool *d_vertexVisited;   // array to see if edges have been visited
-    int  *d_pred;            // array to store predecssors
-    int  *d_dist;            // array to store distances
-    int  *d_nextIndex;       // array to store 
-
-
-    // Allocate  Global memory
-    cudaMalloc((void**) &d_vertexVisited,  sizeof(bool) * numVerticies); //doesnt need populating
-    cudaMalloc((void**) &d_pred,           arraySizeVertices);            // doesnt
-    cudaMalloc((void**) &d_dist,           arraySizeVertices);            // doesnt
-    cudaMalloc((void**) &d_nextIndex,      arraySizeVertices);            // doesnt
-
-    queue.push_back(source);
-
-    // BFS algorithm  
-    while (!queue.empty()) 
-    {  
-        int queueIter = queue.front();  // Current Vertex
-        queue.pop_front(); 
-
-        int edgeCount = graph.at(queueIter).size();
-
-        // need to populate
-        thrust::device_vector<int> d_edges(graph.at(queueIter));
-
-        IterateEdges<<<1, edgeCount>>>(thrust::raw_pointer_cast(d_edges.data()), 
-            d_dist, 
-            d_pred, 
-            d_vertexVisited,
-            d_nextIndex, 
-            foundDest, 
-            edgeCount, 
-            queueIter, 
-            dest);
-
-        cudaMemcpy(h_nextIndex, d_nextIndex, arraySizeVertices, cudaMemcpyDeviceToHost);
-
-        for (int nextIter = 0; nextIter < numVerticies; ++nextIter)
-        {
-            if (h_nextIndex[nextIter] != -1)
-            {
-                queue.push_back(h_nextIndex[nextIter]);
-                printf("Use nextIndex %d", h_nextIndex[nextIter]);
-            }
-        }
-
-        if (foundDest)
-        {
-            // Free memory
-            cudaFree(d_vertexVisited);
-            cudaFree(d_pred);
-            cudaFree(d_dist);
-            cudaFree(d_nextIndex);
-            return true;
-        }
-    } 
-
-    // Free memory
-    cudaFree(d_vertexVisited);
-    cudaFree(d_pred);
-    cudaFree(d_dist);
-    cudaFree(d_nextIndex);
-
-    return false; 
+    return 0.0;
 }
 
 // Option 3

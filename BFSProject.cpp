@@ -6,7 +6,7 @@
 // Author: Adam Piorkowski
 // Runs BFS for shortest path using CPU and GPU algorithms
 
-
+#include <algorithm>
 #include <list> 
 #include <vector> 
 #include <iostream>
@@ -129,12 +129,15 @@ void BFSComputeShortedDist(vector<vector<int>> graph,
     printf("\n");
 } 
 
-  // Reads in vertices and adds them to vector of vectors
+// Reads in vertices and adds them to vector of vectors
+// Also populates a vertex and edge vector for the GPU algorithms
 void ReadInFile(std::string          fileName,
                vector<vector<int> > &graph,
-               int                   &destination,
-               int                   &source,
-               int                   &totalEdges)
+               vector<int>          &vertices,
+               vector<int>          &edges,
+               int                  &destination,
+               int                  &source,
+               int                  &totalEdges)
 {
 
     printf("FileName: %s \n", fileName.c_str());
@@ -161,8 +164,18 @@ void ReadInFile(std::string          fileName,
         }
         else
         {
-             totalEdges++;
-             createNewEdge(graph, val1, val2); 
+            // Create Graph for CPU
+            totalEdges++;
+            createNewEdge(graph, val1, val2); 
+
+            // Creates Graph for GPU
+            if (std::find(vertices.begin(), vertices.end(), val1) == vertices.end())
+            {
+                vertices.push_back(val1);
+            }
+
+            edges.push_back(val2);
+
         }
     }
 }
@@ -186,15 +199,18 @@ int main(int argc, char const *argv[])
     // Vector of vectors to store graph
     vector<vector<int> > vertices; 
 
-  
-
     int destination = 0;
     int source      = 0;
     int totalEdges  = 0;
 
+    vector<int> vertex; 
+    vector<int> edges; 
+
     // need to read in vertices
     ReadInFile(graphFile,
                vertices,
+               vertex,
+               edges,
                destination,
                source,
                totalEdges);
@@ -215,8 +231,11 @@ int main(int argc, char const *argv[])
 
     // GPU - One using Thrust, another making kernel calls
     printf("Running BFS on GPU\n");
-    RunBFSShortestDistance(vertices, destination, source, totalEdges);
-    RunBFSUsingThrust(vertices, destination, source, totalEdges);
+    //RunBFSShortestDistance(vertices, destination, source, totalEdges);
+    //RunBFSUsingThrust(vertices, destination, source, totalEdges);
+
+    // Testing new Algorithm
+    BFSByLevel(vertices, destination, source, totalEdges);
 
     return 0; 
 } 

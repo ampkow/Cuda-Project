@@ -35,25 +35,6 @@ __global__ void FindShortestPath(int *path,
        pointer = pred[pointer];
        pathSize++;
     }       
-      
-    // printing path from source to destination 
-    printf("\nShortest Path Length is %d\n", pathSize); 
-    int count = 0;
-    int iter = fullSize - 1;
-    while (count < pathSize) 
-    {
-        printf(" %d ", path[iter]); 
-        count++;
-        iter--;
-    }
-
-    // printing path from source to destination 
-    printf("\n Shortest Path: \n"); 
-    for (int iter = pathSize - 1; iter >= 0; iter--) 
-    {
-      printf("index %d ", path[iter]); 
-    }
-
 }
 
 __global__ void BFSAlgorithm(int  *graph, 
@@ -223,6 +204,8 @@ float RunBFSShortestDistance(std::vector<std::vector<int> > &graph,
 
     int  *d_graph;           // Pointer to 1 d array containing the graph
 
+    cudaEvent_t start = get_time();
+
     // Allocate  Global memory
     cudaMalloc((void**) &d_graph, graphSize);
     cudaMalloc((void**) &d_vertexVisited,  sizeof(bool) * numVerticies);
@@ -235,6 +218,8 @@ float RunBFSShortestDistance(std::vector<std::vector<int> > &graph,
     // Copy Memory to the device for the kernel
     cudaMemcpy(d_numEdges, h_numEdges, arraySizeVertices, cudaMemcpyHostToDevice);
     cudaMemcpy(d_graph, h_graph, graphSize, cudaMemcpyHostToDevice);
+
+    cudaEvent_t finishMemAlloc = get_time();
 
 
     // BFS call
@@ -253,10 +238,14 @@ float RunBFSShortestDistance(std::vector<std::vector<int> > &graph,
 
     cudaDeviceSynchronize();
 
+    cudaEvent_t kernelFinished = get_time();
+
     cudaMemcpy((void**)foundDest, d_found, sizeof(bool), cudaMemcpyDeviceToHost);
 
     cudaMemcpy(h_dist, d_distances, arraySizeVertices, cudaMemcpyDeviceToHost);
     cudaMemcpy(h_pred, d_predecessors, arraySizeVertices, cudaMemcpyDeviceToHost);
+
+    cudaEvent_t copyBack = get_time();
 
     if (foundDest)
     {
@@ -294,6 +283,8 @@ float RunBFSShortestDistance(std::vector<std::vector<int> > &graph,
     cudaFree(d_predecessors);
     cudaFree(d_distances);
 
+    cudaEvent_t finished = get_time();
+
     free(h_numEdges);
     free(h_dist);
     free(h_pred);
@@ -311,6 +302,8 @@ float RunBFSUsingThrust(std::vector<std::vector<int> > &graph,
 
     int vertexSize = graph.size();
 
+    cudaEvent_t start = get_time();
+
     thrust::device_vector<int> d_visited(vertexSize);
     thrust::device_vector<int> d_predecessors(vertexSize);
     thrust::device_vector<int> d_distances(vertexSize);
@@ -322,6 +315,8 @@ float RunBFSUsingThrust(std::vector<std::vector<int> > &graph,
 
     nextVertList.push_back(source);
     d_visited[source] = true;
+
+    cudaEvent_t memFinished = get_time();
 
     bool foundDest = false;
 
@@ -389,8 +384,28 @@ float RunBFSUsingThrust(std::vector<std::vector<int> > &graph,
                 iter--;
             }
 
+            cudaEvent_t bfsFinised = get_time();
+
             return true;
         }
     } 
+
+    cudaEvent_t bfsFailFinised = get_time();
+
     return false; 
+}
+
+float BFSByLevel(std::vector<std::vector<int> > &graph,
+                 int                            destination,
+                 int                            source,
+                 int                            totalEdges)
+{
+
+    // for (int iter0 = 0; iter0 < graph.size(); ++iter0)
+    // {
+    //     printf("Iter %d\n", graph[iter0][0]);
+    // }
+
+    return 0.0;
+
 }

@@ -12,3 +12,9 @@ float RunBFSUsingThrust(std::vector<std::vector<int> > &graph,
                         int                             dest,
                         int                             source,
                         int                             totalEdges);
+
+
+float BFSByLevel(std::vector<std::vector<int> > &graph,
+                 int                             destination,
+                 int                             source,
+                 int                             totalEdges);

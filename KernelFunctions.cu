@@ -1,4 +1,4 @@
-// Contains Kernel functions for Cuda
+// Contains GPU Cuda code that executes BFS algorithm
 #include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 #include <thrust/fill.h>
@@ -37,7 +37,14 @@ void FindShortestPath(int *path,
     }       
 }
 
-// Run BFS algorithm using thurst library
+/**
+ * Runs BFS using Thrust Vectors and Thrust Library
+ * graph       - contains all vertices and their edges
+ * destination - destination vertex
+ * source      - source vertex
+ * totalEdges  - total number of edges in graph
+ * 
+**/
 float RunBFSUsingThrust(std::vector<std::vector<int> > &graph,
                          int                            destination,
                          int                            source,
@@ -52,7 +59,7 @@ float RunBFSUsingThrust(std::vector<std::vector<int> > &graph,
     thrust::device_vector<int> d_visited(vertexSize);
     thrust::device_vector<int> d_predecessors(vertexSize);
     thrust::device_vector<int> d_distances(vertexSize);
-    thrust::device_vector<int> d_path(totalEdges);
+    thrust::device_vector<int> d_path;
 
     thrust::fill(d_visited.begin(), d_visited.end(), false);
     thrust::fill(d_distances.begin(), d_distances.end(), 0);
@@ -80,16 +87,14 @@ float RunBFSUsingThrust(std::vector<std::vector<int> > &graph,
         {
             int nextVert = d_edges[iter0];
             if (d_visited[nextVert] == false) 
-            { 
-                printf("Element (%d, %d) = %d \n", currVertIter, iter0, nextVert);
-    
+            {  
                 d_visited[nextVert] = true; 
                 d_distances[nextVert]    = d_distances[currVertIter] + 1; 
                 d_predecessors[nextVert]    = currVertIter; 
     
                 nextVertList.push_back(nextVert);
     
-                // Stop When finding destination
+                // Return after reaching destination
                 if (nextVert == destination) 
                 {
                     foundDest = true;
@@ -97,42 +102,47 @@ float RunBFSUsingThrust(std::vector<std::vector<int> > &graph,
                 }
             }
         }
+    }
 
-        if (foundDest)
-        {
-            d_path.push_back(destination);
+    if (foundDest)
+    {
+        d_path.push_back(destination);
 
-            int pointer = destination;
+        int pointer = destination;
+        int pathSize = 1;
 
-            int pathSize = 1;
-
-            while (d_predecessors[pointer] != -1) 
-            { 
-               pathSize++;
-               d_path.push_back(d_predecessors[pointer]); 
-               pointer = d_predecessors[pointer];
-            }       
+        while (d_predecessors[pointer] != -1) 
+        { 
+            pathSize++;
+            d_path.push_back(d_predecessors[pointer]); 
+            pointer = d_predecessors[pointer];
+        }       
               
-            // printing path from source to destination 
-            printf("\nShortest Path Length is %d\n", pathSize); 
-            int count = 0;
-            int iter = d_path.size() - 1;
-            while (count < pathSize) 
-            {
-                std::cout << d_path[iter] << " "; 
-                count++;
-                iter--;
-            }
-
-            cudaEvent_t bfsFinised = get_time();
-
-            return true;
+        // printing path from source to destination 
+        printf("\nShortest Path Length is %d\n", pathSize); 
+        int count = 0;
+        int iter = d_path.size() - 1;
+        while (count < pathSize) 
+        {
+            std::cout << d_path[iter] << " "; 
+            count++;
+            iter--;
         }
+
+        std::cout << std::endl;
     } 
+    else
+    {
+        printf("Shortest Path not found to destination %d using Thrust library \n", destination); 
+    }    
 
-    cudaEvent_t bfsFailFinised = get_time();
-
-    return false; 
+    cudaEvent_t bfsFinised = get_time();
+    cudaEventSynchronize(bfsFinised);
+    
+    float totalTime;
+    cudaEventElapsedTime(&totalTime, start, bfsFinised);
+    
+    return totalTime; 
 }
 
 __global__ void BFSLevels(int  *vertices,
@@ -185,6 +195,15 @@ __global__ void BFSLevels(int  *vertices,
     }    
 }
 
+/**
+ * Runs BFS on GPU by searching level by level
+ * vertices    - list of vertices for GPU
+ * edges       - list of edge destinations for GPU
+ * vertIndices - list of start points for each vertices edges in edge list
+ * edgeSize    - list of how many edges each vertex has
+ * destination - destination vertex
+ * source      - source vertex
+ **/
 float BFSByLevel(std::vector<int> &vertices,
                  std::vector<int> &edges,
                  std::vector<int> &vertIndices,
@@ -218,6 +237,7 @@ float BFSByLevel(std::vector<int> &vertices,
     h_levels[source]    = true;
     h_distances[source] = 0;
 
+    cudaEvent_t start = get_time();
     bool *d_visitedVertices;
     bool *d_levels;
     int  *d_distances;
@@ -284,33 +304,45 @@ float BFSByLevel(std::vector<int> &vertices,
 
     cudaFree(d_foundDest);
 
-    thrust::device_vector<int> d_path(edges);
+    cudaEvent_t end = get_time();
+
+    cudaEventSynchronize(end);
+    
+    float totalTime;
+    cudaEventElapsedTime(&totalTime, start, end);
+
+    std::vector<int> path;
 
     if (h_foundDest)
     {
-        d_path.push_back(destination);
+        path.push_back(destination);
         int pointer = destination;
 
-            int pathSize = 1;
 
-            while (h_predecessors[pointer] != -1) 
-            { 
-               pathSize++;
-               d_path.push_back(h_predecessors[pointer]); 
-               pointer = h_predecessors[pointer];
-            }       
+        while (h_predecessors[pointer] != -1) 
+        { 
+            path.push_back(h_predecessors[pointer]); 
+            pointer = h_predecessors[pointer];
+        }       
               
-            // printing path from source to destination 
-            printf("\nShortest Path Length is %d\n", pathSize); 
-            int count = 0;
-            int iter = d_path.size() - 1;
-            while (count < pathSize) 
-            {
-                std::cout << d_path[iter] << " "; 
-                count++;
-                iter--;
-            }
+        // printing path from source to destination 
+        printf("\nShortest Path Length is %zd\n", path.size()); 
+        int count = 0;
+        int iter = path.size() - 1;
+        while (count < path.size()) 
+        {
+            std::cout << path[iter] << " "; 
+            count++;
+            iter--;
+        }
+        std::cout << std::endl;
     }
+    else
+    {
+        printf("Shortest Path not found to destination %d using GPU BFS Search by levels  \n", destination); 
+    }
+
+    
 
     // Free Host Memory
     free(h_visitedVertices);
@@ -320,6 +352,6 @@ float BFSByLevel(std::vector<int> &vertices,
 
     cudaFreeHost(h_foundDest);
 
-    return 0.0;
+    return totalTime;
 
 }

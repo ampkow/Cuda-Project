@@ -37,261 +37,6 @@ __global__ void FindShortestPath(int *path,
     }       
 }
 
-__global__ void BFSAlgorithm(int  *graph, 
-                             int  *numEdges,     // arrray for number of edges for each vertex
-                             int  *nextVertList, // List of edges to be searched
-                             bool *visited,      // array to see if edges have been visited
-                             int   source,
-                             int   dest,
-                             int   vertexSize,
-                             int   maxEdges,
-                             int  *pred,
-                             int  *dist,
-                             int   totalEdges,   // Total number of edges in the graph
-                             volatile bool *found)    // Variable to signify destination was found
-{
-
-    volatile __shared__ bool foundDest;
-
-    // initialize shared status
-    if (threadIdx.x == 0) 
-    {
-        foundDest = *found;
-    }
-    __syncthreads();
-
-    // TODO initalize these outside of this kernel
-    for (int iter = 0; iter < vertexSize; iter++) 
-    { 
-        visited[iter] = false; 
-        dist[iter]    = 0; 
-        pred[iter]    = -1; 
-    } 
-
-    visited[source] = true; 
-    dist[source] = 0; 
-    nextVertList[0] = source; 
-
-    // BFS algorithm  
-
-    // Pointer for front of List
-    int pointer     = 0;
-    int backPointer = 1;
-
-    while (pointer != totalEdges && !foundDest) 
-    {  
-        int currVertIter = nextVertList[pointer]; 
-        int iter = maxEdges * pointer;
-        pointer++; 
-
-        int count = 0;
-        
-        while (count < maxEdges)
-        { 
-            
-            int xVal = iter/maxEdges;
-            int yVal = iter - (xVal * maxEdges);
-
-            int index = xVal * maxEdges + yVal;
-            if (graph[index] == -100)
-            {
-                // jump to next vertex
-                count =  maxEdges;
-            }
-            else
-            {
-                if (visited[graph[index]] == false) 
-                {    
-                    visited[graph[index]] = true; 
-                    dist[graph[index]]    = dist[currVertIter] + 1; 
-                    pred[graph[index]]    = currVertIter; 
-
-                    nextVertList[backPointer] = graph[index]; 
-
-                    iter = index;
-                    backPointer++;
-
-                    // Stop When finding destination
-                    if (graph[index] == dest) 
-                    {
-                        foundDest = true;
-                    }
-                } 
-            }    
-            count++;
-            iter++;
-        }
-    }
-
-    if (threadIdx.x == 0 && *found) 
-    {
-        foundDest = true;
-    }
-    __syncthreads(); 
-}
-
-/* Flattens vector of vectors into 1 D array
- * Graph    -- Vector of vectors containing graph 
- * maxEdges -- Max number of edges in the graph
- *
- */
-int *ConvertVectorTo2D(std::vector<std::vector<int> >  &graph,
-                       int                              maxEdges)
-{
-    int *h_graph;
-    int graphSize = graph.size();
-    h_graph = new int[graphSize * maxEdges];
-
-    for (int outIter = 0; outIter < graphSize; outIter++)
-    {
-        for(int iter2 = 0; (iter2 < maxEdges); ++iter2)
-        {
-            if (iter2 >= graph[outIter].size())
-            {
-                h_graph[outIter * maxEdges + iter2] = -100;
-            }
-            else
-            {
-                h_graph[outIter * maxEdges + iter2] = graph[outIter][iter2];
-            }
-        } 
-    }
-
-    return h_graph;
-}
-
-// Sets up memory for graph and calls kernels
-float RunBFSShortestDistance(std::vector<std::vector<int> > &graph,
-                             int                             destination,
-                             int                             source,
-                             int                             totalEdges)
-{
-    bool foundDest = false;
-
-    int numVerticies = graph.size();
-
-    int arraySizeVertices = sizeof(int) * numVerticies;
-    int arraySizeEdges    = sizeof(int) * totalEdges;
-
-    int maxEdges = 0;
-
-    int *h_numEdges = (int *) malloc(arraySizeVertices); 
-    int *h_dist     = (int *) malloc(arraySizeVertices); 
-    int *h_pred     = (int *) malloc(arraySizeVertices); 
-
-    for (int vectIter = 0; vectIter < numVerticies; vectIter++)
-    {
-        int edgeCount = graph[vectIter].size();
-        h_numEdges[vectIter] = edgeCount;
-
-        if (edgeCount > maxEdges)
-        {
-            maxEdges = edgeCount;
-        }
-    }
-
-    // Convert Vector of Vector to 2d array
-    int* h_graph = ConvertVectorTo2D(graph, maxEdges);
-
-    int graphSize = sizeof(int) * (graph.size() * maxEdges);
-
-    bool *d_vertexVisited;   // array to see if edges have been visited
-    bool *d_found;           // Found Destination
-    int  *d_numEdges;        // arrray for number of edges for each vertex
-    int  *d_edgeList;        // List of edges to be searched
-    int  *d_predecessors;            // array to store predecssors
-    int  *d_distances;            // array to store distances
-
-    int  *d_graph;           // Pointer to 1 d array containing the graph
-
-    cudaEvent_t start = get_time();
-
-    // Allocate  Global memory
-    cudaMalloc((void**) &d_graph, graphSize);
-    cudaMalloc((void**) &d_vertexVisited,  sizeof(bool) * numVerticies);
-    cudaMalloc((void**) &d_found,          sizeof(bool));                 
-    cudaMalloc((void**) &d_numEdges,       arraySizeVertices);            
-    cudaMalloc((void**) &d_edgeList,       arraySizeEdges);
-    cudaMalloc((void**) &d_predecessors,           arraySizeVertices);
-    cudaMalloc((void**) &d_distances,           arraySizeVertices); 
-
-    // Copy Memory to the device for the kernel
-    cudaMemcpy(d_numEdges, h_numEdges, arraySizeVertices, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_graph, h_graph, graphSize, cudaMemcpyHostToDevice);
-
-    cudaEvent_t finishMemAlloc = get_time();
-
-
-    // BFS call
-    BFSAlgorithm<<<numVerticies,1>>>(d_graph,
-                   d_numEdges,
-                   d_edgeList, 
-                   d_vertexVisited, 
-                   source,
-                   destination,
-                   numVerticies,
-                   maxEdges,
-                   d_predecessors,
-                   d_distances,
-                   totalEdges,
-                   d_found);
-
-    cudaDeviceSynchronize();
-
-    cudaEvent_t kernelFinished = get_time();
-
-    cudaMemcpy((void**)foundDest, d_found, sizeof(bool), cudaMemcpyDeviceToHost);
-
-    cudaMemcpy(h_dist, d_distances, arraySizeVertices, cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_pred, d_predecessors, arraySizeVertices, cudaMemcpyDeviceToHost);
-
-    cudaEvent_t copyBack = get_time();
-
-    if (foundDest)
-    {
-        thrust::device_vector<int> d_path(totalEdges);
-        d_path.push_back(destination);
-
-        int pointer = destination;
-
-        int pathSize = 1;
-
-        while (h_pred[pointer] != -1) 
-        { 
-           pathSize++;
-           d_path.push_back(h_pred[pointer]); 
-           pointer = h_pred[pointer];
-        }       
-          
-        // printing path from source to destination 
-        printf("\nShortest Path Length is %d\n", pathSize); 
-        int count = 0;
-        int iter = d_path.size() - 1;
-        while (count < pathSize) 
-        {
-            std::cout << d_path[iter] << " "; 
-            count++;
-            iter--;
-        }
-    }
-    
-
-    cudaFree(d_vertexVisited);
-    cudaFree(d_found);
-    cudaFree(d_numEdges);
-    cudaFree(d_edgeList);
-    cudaFree(d_predecessors);
-    cudaFree(d_distances);
-
-    cudaEvent_t finished = get_time();
-
-    free(h_numEdges);
-    free(h_dist);
-    free(h_pred);
-
-    return 0.0;
-}
-
 // Run BFS algorithm using thurst library
 float RunBFSUsingThrust(std::vector<std::vector<int> > &graph,
                          int                            destination,
@@ -395,16 +140,194 @@ float RunBFSUsingThrust(std::vector<std::vector<int> > &graph,
     return false; 
 }
 
-float BFSByLevel(std::vector<std::vector<int> > &graph,
-                 int                            destination,
-                 int                            source,
-                 int                            totalEdges)
+__global__ void BFSLevels(int  *vertices,
+                          int  *edges,
+                          int  *distances,
+                          int  *predecessors,
+                          int  *vertIndices,
+                          int  *edgeLengths,
+                          bool *levels,
+                          bool *visitedVertices,
+                          bool *foundDest,
+                          int   numVert,
+                          int   destination)
 {
+    int thrID = threadIdx.x + blockIdx.x * blockDim.x;
 
-    // for (int iter0 = 0; iter0 < graph.size(); ++iter0)
-    // {
-    //     printf("Iter %d\n", graph[iter0][0]);
-    // }
+
+    __shared__ bool destFound;
+    destFound = false;
+    if (thrID < numVert && !destFound)
+    {
+        int curVert = vertices[thrID];
+        if (levels[curVert])
+        {
+            levels[curVert]          = false;
+            visitedVertices[curVert] = true;
+
+            int edgesBegin = vertIndices[curVert];
+            int edgesEnd   = edgeLengths[curVert] + edgesBegin;  
+
+            for (int edgeIter = edgesBegin; edgeIter < edgesEnd; ++edgeIter)
+            {
+                printf("Here %d, %d, %d, %d\n", curVert, edgeIter, edgesBegin, edgesEnd);
+                int nextVert = edges[edgeIter];
+                if (!visitedVertices[nextVert])
+                {
+                    distances[nextVert] = distances[curVert] + 1;
+                    levels[nextVert] = true;
+
+                    printf("Vertices %d, edge %d\n", curVert, nextVert);
+                    predecessors[curVert]  = nextVert; 
+      
+                    // Stop When finding destination
+                    if (curVert == destination) 
+                    {
+                        *foundDest = true;
+                        destFound  = true;
+                        __syncthreads();
+                        printf("Won\n");
+                    }
+                }
+            }
+        }
+    }    
+}
+
+float BFSByLevel(std::vector<int> &vertices,
+                 std::vector<int> &edges,
+                 std::vector<int> &vertIndices,
+                 std::vector<int> &edgeLength,
+                 int               destination,
+                 int               source)
+{
+    int numVertices = vertices.size();
+
+    int arraySizeInBytes     = sizeof(int) * numVertices;
+    int arraySizeInBytesBool = sizeof(bool) * numVertices;
+
+    // Create Host Arrays to pass into kernel call for BFS
+    bool *h_visitedVertices;
+    bool *h_levels;
+    int  *h_distances;
+    int  *h_predecessors;
+
+    h_distances        = (int *)  malloc(arraySizeInBytes); 
+    h_predecessors     = (int *)  malloc(arraySizeInBytes);
+    h_visitedVertices  = (bool *) malloc(arraySizeInBytesBool); 
+    h_levels           = (bool *) malloc(arraySizeInBytesBool); 
+
+    for (int vertexIter = 0; vertexIter < numVertices; ++vertexIter)
+    {
+        h_visitedVertices[vertexIter] = false;
+        h_levels[vertexIter]          = false;
+        h_predecessors[vertexIter]    = -1;
+    }
+
+    h_levels[source]    = true;
+    h_distances[source] = 0;
+
+    bool *d_visitedVertices;
+    bool *d_levels;
+    int  *d_distances;
+    int  *d_predecessors;
+
+    thrust::device_vector<int> d_vertices(vertices);
+    thrust::device_vector<int> d_edges(edges);
+    thrust::device_vector<int> d_vertIndices(vertIndices);
+    thrust::device_vector<int> d_edgeLength(edgeLength);
+
+    cudaMalloc((void**) &d_distances,       arraySizeInBytes);
+    cudaMalloc((void**) &d_predecessors,       arraySizeInBytes);
+    cudaMalloc((void**) &d_levels,          arraySizeInBytesBool);
+    cudaMalloc((void**) &d_visitedVertices, arraySizeInBytesBool);
+
+    cudaMemcpy(d_levels,           h_levels,           arraySizeInBytesBool, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_visitedVertices,  h_visitedVertices,  arraySizeInBytesBool, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_predecessors,     h_predecessors,     arraySizeInBytes,     cudaMemcpyHostToDevice);
+    cudaMemcpy(d_distances,        h_distances,        arraySizeInBytes,     cudaMemcpyHostToDevice);
+
+
+    int blockCount = 1;
+    int numThreads = numVertices;
+
+    bool *h_foundDest;
+
+    cudaHostAlloc((void**)&h_foundDest, sizeof(bool), cudaHostAllocDefault);
+
+    h_foundDest = false;
+
+    bool *d_foundDest;
+
+    cudaMalloc((void**) &d_foundDest,    sizeof(bool));
+    cudaMemcpy(d_foundDest,  &h_foundDest,  sizeof(bool), cudaMemcpyHostToDevice);
+
+    // how to get predecessors???
+    int runCount = 0;
+    while (runCount < numVertices)
+    {
+        BFSLevels<<<blockCount, numThreads>>>(thrust::raw_pointer_cast(d_vertices.data()),
+                                              thrust::raw_pointer_cast(d_edges.data()),
+                                              d_distances,
+                                              d_predecessors,
+                                              thrust::raw_pointer_cast(d_vertIndices.data()),
+                                              thrust::raw_pointer_cast(d_edgeLength.data()),
+                                              d_levels,
+                                              d_visitedVertices,
+                                              d_foundDest,
+                                              numVertices,
+                                              destination);
+
+        runCount++;
+    }
+
+    cudaMemcpy(&h_foundDest, d_foundDest, sizeof(bool), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_distances, d_distances, arraySizeInBytes, cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_predecessors, d_predecessors, arraySizeInBytes, cudaMemcpyDeviceToHost);
+
+    cudaFree(d_distances);
+    cudaFree(d_levels);
+    cudaFree(d_visitedVertices);
+
+    for (int distIter = 0; distIter < numVertices; ++distIter)
+    {
+        printf ("%d   ", h_distances[distIter]);
+    }
+    printf("\n");
+
+    for (int predIter = 0; predIter < numVertices; ++predIter)
+    {
+        printf ("%d   ", h_predecessors[predIter]);
+    }
+    printf("\n");
+
+    thrust::device_vector<int> d_path(edges);
+
+    if (true)
+    {
+        d_path.push_back(destination);
+        int pointer = destination;
+
+            int pathSize = 1;
+
+            while (h_predecessors[pointer] != -1) 
+            { 
+               pathSize++;
+               d_path.push_back(h_predecessors[pointer]); 
+               pointer = h_predecessors[pointer];
+            }       
+              
+            // printing path from source to destination 
+            printf("\nShortest Path Length is %d\n", pathSize); 
+            int count = 0;
+            int iter = d_path.size() - 1;
+            while (count < pathSize) 
+            {
+                std::cout << d_path[iter] << " "; 
+                count++;
+                iter--;
+            }
+        }
 
     return 0.0;
 

@@ -22,7 +22,10 @@ using namespace std;
 void createNewEdge(vector<vector<int> > &graph, int src, int dest) 
 { 
     graph[src].push_back(dest); 
-    graph[dest].push_back(src); 
+    if (dest != -4)
+    {
+        graph[dest].push_back(src); 
+    }
 } 
   
 // Runs BFS and calculates distances
@@ -124,6 +127,18 @@ void BFSComputeShortedDist(vector<vector<int>> graph,
 
     printf("Shortest Path Length is %d \n", distances[destination]); 
 
+    for (int distIter = 0; distIter < distances.size(); ++distIter)
+    {
+        printf ("%d   ", distances[distIter]);
+    }
+    printf("\n");
+
+     for (int distIter = 0; distIter < predecessors.size(); ++distIter)
+    {
+        printf ("%d   ", predecessors[distIter]);
+    }
+    
+
     FindShortestPath(path, predecessors, destination);
 
     printf("\n");
@@ -135,6 +150,8 @@ void ReadInFile(std::string          fileName,
                vector<vector<int> > &graph,
                vector<int>          &vertices,
                vector<int>          &edges,
+               vector<int>          &vertIndices,
+               vector<int>          &edgeLength,
                int                  &destination,
                int                  &source,
                int                  &totalEdges)
@@ -147,6 +164,8 @@ void ReadInFile(std::string          fileName,
     int val1;
     int val2;
 
+    int curCount = 0;
+    int edgeCount = 0;
 
     while (inputFile >> val1 >> val2)
     {
@@ -171,13 +190,69 @@ void ReadInFile(std::string          fileName,
             // Creates Graph for GPU
             if (std::find(vertices.begin(), vertices.end(), val1) == vertices.end())
             {
-                vertices.push_back(val1);
+                if (edgeCount != 0)
+                {
+                  // edgeLength.push_back(edgeCount);
+                }
+
+                //vertices.push_back(val1);
+                //vertIndices.push_back(curCount);
+                edgeCount = 0;
             }
 
-            edges.push_back(val2);
+            if (val2 != -4)
+            {
+                //edges.push_back(val2);
+                edgeCount++;
+            }
 
+            curCount++;
         }
     }
+    
+    vertices.push_back(0);
+    vertices.push_back(1);
+    vertices.push_back(3);
+    vertices.push_back(4);
+    vertices.push_back(5);
+    vertices.push_back(6);
+    vertices.push_back(7);
+    vertices.push_back(8);
+    vertices.push_back(9);
+    vertices.push_back(2);
+
+    edges.push_back(1);
+    edges.push_back(3);
+    edges.push_back(2);
+    edges.push_back(4);
+    edges.push_back(9);
+    edges.push_back(5);
+    edges.push_back(6);
+    edges.push_back(7);
+    edges.push_back(6);
+    edges.push_back(7);
+    edges.push_back(8);
+    edges.push_back(9);
+    edges.push_back(2);
+    edges.push_back(0);
+
+    vertIndices.push_back(0);
+    vertIndices.push_back(2);
+    vertIndices.push_back(3);
+    vertIndices.push_back(5);
+    vertIndices.push_back(8);
+    vertIndices.push_back(9);
+    vertIndices.push_back(10);
+    vertIndices.push_back(12);
+
+    edgeLength.push_back(2);
+    edgeLength.push_back(1);
+    edgeLength.push_back(2);
+    edgeLength.push_back(3);
+    edgeLength.push_back(1);
+    edgeLength.push_back(1);
+    edgeLength.push_back(2);
+    edgeLength.push_back(2);
 }
   
 // Main Program 
@@ -205,12 +280,16 @@ int main(int argc, char const *argv[])
 
     vector<int> vertex; 
     vector<int> edges; 
+    vector<int> vertIndices; 
+    vector<int> edgeLength; 
 
     // need to read in vertices
     ReadInFile(graphFile,
                vertices,
                vertex,
                edges,
+               vertIndices,
+               edgeLength,
                destination,
                source,
                totalEdges);
@@ -230,12 +309,17 @@ int main(int argc, char const *argv[])
     printf("\n");
 
     // GPU - One using Thrust, another making kernel calls
-    printf("Running BFS on GPU\n");
+    printf("Running BFS on GPU %d\n", vertexSize);
     //RunBFSShortestDistance(vertices, destination, source, totalEdges);
     //RunBFSUsingThrust(vertices, destination, source, totalEdges);
 
     // Testing new Algorithm
-    BFSByLevel(vertices, destination, source, totalEdges);
+    BFSByLevel(vertex,
+               edges,
+               vertIndices,
+               edgeLength,
+               destination,
+               source);
 
     return 0; 
 } 

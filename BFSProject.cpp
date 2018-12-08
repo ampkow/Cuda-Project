@@ -203,11 +203,9 @@ void ReadInFile(std::string          fileName,
     int val1;
     int val2;
 
-    int curCount = 0;
-    int edgeCount = 0;
-
     while (inputFile >> val1 >> val2)
     {
+        printf("Val1 %d, Val2 %d\n", val1, val2);
         if (val2 == -1)           // Designates number of Vertices
         {
             graph.resize(val1);
@@ -225,75 +223,24 @@ void ReadInFile(std::string          fileName,
             // Create Graph for CPU
             totalEdges++;
             createNewEdge(graph, val1, val2); 
-
-            // Creates Graph for GPU
-            if (std::find(vertices.begin(), vertices.end(), val1) == vertices.end())
-            {
-                if (edgeCount != 0)
-                {
-                  edgeSize.push_back(edgeCount);
-                }
-
-                vertices.push_back(val1);
-                vertIndices.push_back(curCount);
-                edgeCount = 0;
-            }
-
-            if (val2 != -4)
-            {
-                edges.push_back(val2);
-                edgeCount++;
-            }
-
-            curCount++;
         }
     }
 
     printf ("Finished Reading in Graph\n\n");
-    
-    // vertices.push_back(0);
-    // vertices.push_back(1);
-    // vertices.push_back(3);
-    // vertices.push_back(4);
-    // vertices.push_back(5);
-    // vertices.push_back(6);
-    // vertices.push_back(7);
-    // vertices.push_back(8);
-    // vertices.push_back(9);
-    // vertices.push_back(2);
 
-    // edges.push_back(1);
-    // edges.push_back(3);
-    // edges.push_back(2);
-    // edges.push_back(4);
-    // edges.push_back(9);
-    // edges.push_back(5);
-    // edges.push_back(6);
-    // edges.push_back(7);
-    // edges.push_back(6);
-    // edges.push_back(7);
-    // edges.push_back(8);
-    // edges.push_back(9);
-    // edges.push_back(2);
-    // edges.push_back(0);
-
-    // vertIndices.push_back(0);
-    // vertIndices.push_back(2);
-    // vertIndices.push_back(3);
-    // vertIndices.push_back(5);
-    // vertIndices.push_back(8);
-    // vertIndices.push_back(9);
-    // vertIndices.push_back(10);
-    // vertIndices.push_back(12);
-
-    // edgeLength.push_back(2);
-    // edgeLength.push_back(1);
-    // edgeLength.push_back(2);
-    // edgeLength.push_back(3);
-    // edgeLength.push_back(1);
-    // edgeLength.push_back(1);
-    // edgeLength.push_back(2);
-    // edgeLength.push_back(2);
+    // Populate data structures for GPU code
+    int count = 0;
+    for (int graphIter = 0; graphIter < graph.size(); ++graphIter)
+    {
+        vertices.push_back(graphIter);
+        edgeSize.push_back(graph[graphIter].size());
+        vertIndices.push_back(count);
+        for (int graphIter2 = 0; graphIter2 < graph[graphIter].size(); ++graphIter2)
+        {
+            edges.push_back(graph[graphIter][graphIter2]);
+            count++;
+        }
+    }
 }
 
 // Prints RunTime Totals
@@ -361,16 +308,21 @@ int main(int argc, char const *argv[])
     printf("\n");
 
     // GPU - One using Thrust, another making kernel calls
-    printf("Running BFS on GPU\n");
+    printf("Running BFS on GPU\n\n");
+    printf("Running BFS with Thrust");
     float thrustRunTime = RunBFSUsingThrust(vertices, destination, source, totalEdges);
 
     printf("\n");
+
+    printf("Running BFS iterating through Levels");
     float gpuRunTime = BFSByLevel(vertex,
                                   edges,
                                   vertIndices,
                                   edgeSize,
                                   destination,
                                   source);
+
+    printf("\n");
 
     PrintRunTimeTotal(cpuRunTime, thrustRunTime, gpuRunTime);
 

@@ -9,7 +9,7 @@
 // Algorithm takes in graph using data points from an input file
 // and populates different data structures for CPU BFS and GPU BFS.
 // Timing of the runs is outputted at the end of the algorithm to 
-// compare CPU timing vs GPU
+// Compare CPU timing vs GPU
 
 #include <algorithm>
 #include <list> 
@@ -309,12 +309,12 @@ int main(int argc, char const *argv[])
 
     // GPU - One using Thrust, another making kernel calls
     printf("Running BFS on GPU\n\n");
-    printf("Running BFS with Thrust");
+    printf("Running BFS with Thrust___________");
     float thrustRunTime = RunBFSUsingThrust(vertices, destination, source, totalEdges);
 
     printf("\n");
 
-    printf("Running BFS iterating through Levels");
+    printf("Running BFS iterating through Levels__________\n");
     float gpuRunTime = BFSByLevel(vertex,
                                   edges,
                                   vertIndices,

@@ -11,8 +11,6 @@
 // Internal Headers
 #include "KernelFunctions.h"
 
-//TODO error checking and clean up timing
-
 // taken from global_memory.cu, Creates event and records time
 __host__ cudaEvent_t get_time(void)
 {
@@ -97,7 +95,7 @@ float RunBFSUsingThrust(std::vector<std::vector<int> > &graph,
         }
     }
 
-    cudaEvent_t bfsFinised;
+    cudaEvent_t bfsFinised = get_time();
 
     if (foundDest)
     {
@@ -115,8 +113,6 @@ float RunBFSUsingThrust(std::vector<std::vector<int> > &graph,
             d_path.push_back(d_predecessors[pointer]); 
             pointer = d_predecessors[pointer];
         }       
-
-        bfsFinised = get_time();
               
         // printing path from source to destination 
         printf("\nShortest Path Length is %d\n", pathSize); 
@@ -134,13 +130,28 @@ float RunBFSUsingThrust(std::vector<std::vector<int> > &graph,
     else
     {
         printf("Shortest Path not found to destination %d using Thrust library \n", destination); 
-        bfsFinised = get_time();
     }    
 
     cudaEventSynchronize(bfsFinised);
+
+    float memAllocTime;
+    cudaEventElapsedTime(&memAllocTime, start, memFinished);
+
+    float kernelRunTime;
+    cudaEventElapsedTime(&kernelRunTime, memFinished, bfsFinised);
     
     float totalTime;
     cudaEventElapsedTime(&totalTime, start, bfsFinised);
+
+    // Clean Up Events
+    cudaEventDestroy(start);
+    cudaEventDestroy(memFinished);
+    cudaEventDestroy(bfsFinised);
+
+    printf("Thrust Memory Allocation time %f\n", memAllocTime);
+    printf("Thrust Kernenl Runtime %f \n", kernelRunTime);
+
+    printf("\n");
     
     return totalTime; 
 }
@@ -278,11 +289,42 @@ float BFSByLevel(std::vector<int> &vertices,
     thrust::device_vector<int> d_vertIndices(vertIndices);
     thrust::device_vector<int> d_edgeLength(edgeLength);
 
+    cudaError_t result;
+
     // allocate other device arrays
-    cudaMalloc((void**) &d_distances,       arraySizeInBytes);
-    cudaMalloc((void**) &d_predecessors,    arraySizeInBytes);
-    cudaMalloc((void**) &d_levels,          arraySizeInBytesBool);
-    cudaMalloc((void**) &d_visitedVertices, arraySizeInBytesBool);
+    result  = cudaMalloc((void**) &d_distances, arraySizeInBytes);
+    if (result > 0)
+    {
+        printf("ERROR -- CUDAMALLOC failed to allocate memory\n");
+        return 0.0;
+    }
+
+    result = cudaMalloc((void**) &d_predecessors, arraySizeInBytes);
+    if (result > 0)
+    {
+        printf("ERROR -- CUDAMALLOC failed to allocate memory\n");
+        cudaFree(d_distances);
+        return 0.0;
+    }
+
+    result = cudaMalloc((void**) &d_levels, arraySizeInBytesBool);
+    if (result > 0)
+    {
+        printf("ERROR -- CUDAMALLOC failed to allocate memory\n");
+        cudaFree(d_distances);
+        cudaFree(d_predecessors);
+        return 0.0;
+    }
+
+    result = cudaMalloc((void**) &d_visitedVertices, arraySizeInBytesBool);
+    if (result > 0)
+    {
+        printf("ERROR -- CUDAMALLOC failed to allocate memory\n");
+        cudaFree(d_distances);
+        cudaFree(d_predecessors);
+        cudaFree(d_levels);
+        return 0.0;
+    } 
 
     // Copy memory to device from host
     cudaMemcpy(d_levels,           h_levels,           arraySizeInBytesBool, cudaMemcpyHostToDevice);
@@ -297,15 +339,41 @@ float BFSByLevel(std::vector<int> &vertices,
     // Use pinned memory to store whether destination was found or not
     bool *h_foundDest;
 
-    cudaHostAlloc((void**)&h_foundDest, sizeof(bool), cudaHostAllocDefault);
+    result = cudaHostAlloc((void**)&h_foundDest, sizeof(bool), cudaHostAllocDefault);
+
+    if (result > 0)
+    {
+        printf("ERROR -- CUDAHOSTALLOC failed to allocate memory\n");
+
+        cudaFree(d_distances);
+        cudaFree(d_predecessors);
+        cudaFree(d_levels);
+        cudaFree(d_visitedVertices);
+        return 0.0;
+    }
 
     h_foundDest = false;
 
     bool *d_foundDest;
 
     // Copy pinned memory to device
-    cudaMalloc((void**) &d_foundDest,    sizeof(bool));
+    result = cudaMalloc((void**) &d_foundDest,    sizeof(bool));
+
+    if (result > 0)
+    {
+        printf("ERROR -- CUDAMALLOC failed to allocate memory for destination\n");
+
+
+        cudaFree(d_distances);
+        cudaFree(d_predecessors);
+        cudaFree(d_levels);
+        cudaFree(d_visitedVertices);
+        return 0.0;
+    }
+
     cudaMemcpy(d_foundDest,  &h_foundDest,  sizeof(bool), cudaMemcpyHostToDevice);
+
+    cudaEvent_t memFinished = get_time();
 
     // Run BFS algorithm going through each level
     int runCount = 0;
@@ -326,6 +394,8 @@ float BFSByLevel(std::vector<int> &vertices,
         runCount++;
     }
 
+    cudaEvent_t kernelFinished = get_time();
+
     // Copy Back Results
     cudaMemcpy(&h_foundDest, d_foundDest, sizeof(bool), cudaMemcpyDeviceToHost);
     cudaMemcpy(h_distances, d_distances, arraySizeInBytes, cudaMemcpyDeviceToHost);
@@ -342,9 +412,29 @@ float BFSByLevel(std::vector<int> &vertices,
     cudaEvent_t end = get_time();
 
     cudaEventSynchronize(end);
-    
+
     float totalTime;
     cudaEventElapsedTime(&totalTime, start, end);
+
+    float memAllocTime;
+    cudaEventElapsedTime(&memAllocTime, start, memFinished);
+
+    float kernelRunTime;
+    cudaEventElapsedTime(&kernelRunTime, memFinished, kernelFinished);
+
+    float copyMemBack;
+    cudaEventElapsedTime(&copyMemBack, kernelFinished, end);
+
+    // Clean Up Events
+    cudaEventDestroy(start);
+    cudaEventDestroy(memFinished);
+    cudaEventDestroy(kernelFinished);
+    cudaEventDestroy(end);
+    
+    printf("GPU Memory Allocation time %f\n", memAllocTime);
+    printf("GPU Kernenl Runtime %f \n", kernelRunTime);
+    printf("GPU Copy Memory Back %f \n", copyMemBack);
+  
 
     std::vector<int> path;
 

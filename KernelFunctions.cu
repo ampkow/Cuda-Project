@@ -160,28 +160,32 @@ __global__ void BFSLevels(int  *vertices,
     if (thrID < numVert && !destFound)
     {
         int curVert = vertices[thrID];
+        //printf("Current Vert %d\n", curVert);
         if (levels[curVert])
         {
             levels[curVert]          = false;
             visitedVertices[curVert] = true;
 
-            int edgesBegin = vertIndices[curVert];
-            int edgesEnd   = edgeLengths[curVert] + edgesBegin;  
+            printf("CurVert %d\n", curVert);
+
+            int edgesBegin = vertIndices[thrID];
+            int edgesEnd   = edgeLengths[thrID] + edgesBegin;  
 
             for (int edgeIter = edgesBegin; edgeIter < edgesEnd; ++edgeIter)
             {
-                printf("Here %d, %d, %d, %d\n", curVert, edgeIter, edgesBegin, edgesEnd);
-                int nextVert = edges[edgeIter];
+               int nextVert = edges[edgeIter];
                 if (!visitedVertices[nextVert])
                 {
+                    printf("Vert %d, Edge %d, Begin %d, End %d\n", curVert, edgeIter, edgesBegin, edgesEnd);
+             
                     distances[nextVert] = distances[curVert] + 1;
                     levels[nextVert] = true;
 
                     printf("Vertices %d, edge %d\n", curVert, nextVert);
-                    predecessors[curVert]  = nextVert; 
+                    predecessors[nextVert]  = curVert; 
       
                     // Stop When finding destination
-                    if (curVert == destination) 
+                    if (nextVert == destination) 
                     {
                         *foundDest = true;
                         destFound  = true;

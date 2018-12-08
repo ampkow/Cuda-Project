@@ -20,10 +20,10 @@ __host__ cudaEvent_t get_time(void)
 	return time;
 }
 
-__global__ void FindShortestPath(int *path,
-                                 int *pred,
-                                 int  fullSize,
-                                 int  dest)
+void FindShortestPath(int *path,
+                      int *pred,
+                      int  fullSize,
+                      int  dest)
 {
     int pointer = dest;
 
@@ -106,11 +106,6 @@ float RunBFSUsingThrust(std::vector<std::vector<int> > &graph,
 
             int pathSize = 1;
 
-            // FindShortestPath<<<1, 1>>>(thrust::raw_pointer_cast(d_path.data()),
-            //                            thrust::raw_pointer_cast(d_predecessors.data()),
-            //                            destination,
-            //                            d_path.size());
-
             while (d_predecessors[pointer] != -1) 
             { 
                pathSize++;
@@ -160,13 +155,10 @@ __global__ void BFSLevels(int  *vertices,
     if (thrID < numVert && !destFound)
     {
         int curVert = vertices[thrID];
-        //printf("Current Vert %d\n", curVert);
         if (levels[curVert])
         {
             levels[curVert]          = false;
             visitedVertices[curVert] = true;
-
-            printf("CurVert %d\n", curVert);
 
             int edgesBegin = vertIndices[thrID];
             int edgesEnd   = edgeLengths[thrID] + edgesBegin;  
@@ -175,13 +167,9 @@ __global__ void BFSLevels(int  *vertices,
             {
                int nextVert = edges[edgeIter];
                 if (!visitedVertices[nextVert])
-                {
-                    printf("Vert %d, Edge %d, Begin %d, End %d\n", curVert, edgeIter, edgesBegin, edgesEnd);
-             
+                {       
                     distances[nextVert] = distances[curVert] + 1;
                     levels[nextVert] = true;
-
-                    printf("Vertices %d, edge %d\n", curVert, nextVert);
                     predecessors[nextVert]  = curVert; 
       
                     // Stop When finding destination
@@ -190,7 +178,6 @@ __global__ void BFSLevels(int  *vertices,
                         *foundDest = true;
                         destFound  = true;
                         __syncthreads();
-                        printf("Won\n");
                     }
                 }
             }
@@ -242,7 +229,7 @@ float BFSByLevel(std::vector<int> &vertices,
     thrust::device_vector<int> d_edgeLength(edgeLength);
 
     cudaMalloc((void**) &d_distances,       arraySizeInBytes);
-    cudaMalloc((void**) &d_predecessors,       arraySizeInBytes);
+    cudaMalloc((void**) &d_predecessors,    arraySizeInBytes);
     cudaMalloc((void**) &d_levels,          arraySizeInBytesBool);
     cudaMalloc((void**) &d_visitedVertices, arraySizeInBytesBool);
 
@@ -266,7 +253,6 @@ float BFSByLevel(std::vector<int> &vertices,
     cudaMalloc((void**) &d_foundDest,    sizeof(bool));
     cudaMemcpy(d_foundDest,  &h_foundDest,  sizeof(bool), cudaMemcpyHostToDevice);
 
-    // how to get predecessors???
     int runCount = 0;
     while (runCount < numVertices)
     {
@@ -285,29 +271,22 @@ float BFSByLevel(std::vector<int> &vertices,
         runCount++;
     }
 
+    // Copy Back Results
     cudaMemcpy(&h_foundDest, d_foundDest, sizeof(bool), cudaMemcpyDeviceToHost);
     cudaMemcpy(h_distances, d_distances, arraySizeInBytes, cudaMemcpyDeviceToHost);
     cudaMemcpy(h_predecessors, d_predecessors, arraySizeInBytes, cudaMemcpyDeviceToHost);
 
+    // Free Device Memory
     cudaFree(d_distances);
     cudaFree(d_levels);
     cudaFree(d_visitedVertices);
+    cudaFree(d_predecessors);
 
-    for (int distIter = 0; distIter < numVertices; ++distIter)
-    {
-        printf ("%d   ", h_distances[distIter]);
-    }
-    printf("\n");
-
-    for (int predIter = 0; predIter < numVertices; ++predIter)
-    {
-        printf ("%d   ", h_predecessors[predIter]);
-    }
-    printf("\n");
+    cudaFree(d_foundDest);
 
     thrust::device_vector<int> d_path(edges);
 
-    if (true)
+    if (h_foundDest)
     {
         d_path.push_back(destination);
         int pointer = destination;
@@ -331,7 +310,15 @@ float BFSByLevel(std::vector<int> &vertices,
                 count++;
                 iter--;
             }
-        }
+    }
+
+    // Free Host Memory
+    free(h_visitedVertices);
+    free(h_levels);
+    free(h_distances);
+    free(h_predecessors);
+
+    cudaFreeHost(h_foundDest);
 
     return 0.0;
 

@@ -126,17 +126,6 @@ void BFSComputeShortedDist(vector<vector<int>> graph,
     path.push_back(destination);
 
     printf("Shortest Path Length is %d \n", distances[destination]); 
-
-    for (int distIter = 0; distIter < distances.size(); ++distIter)
-    {
-        printf ("%d   ", distances[distIter]);
-    }
-    printf("\n");
-
-     for (int distIter = 0; distIter < predecessors.size(); ++distIter)
-    {
-        printf ("%d   ", predecessors[distIter]);
-    }
     
 
     FindShortestPath(path, predecessors, destination);
@@ -192,17 +181,17 @@ void ReadInFile(std::string          fileName,
             {
                 if (edgeCount != 0)
                 {
-                  // edgeLength.push_back(edgeCount);
+                  edgeLength.push_back(edgeCount);
                 }
 
-                //vertices.push_back(val1);
-                //vertIndices.push_back(curCount);
+                vertices.push_back(val1);
+                vertIndices.push_back(curCount);
                 edgeCount = 0;
             }
 
             if (val2 != -4)
             {
-                //edges.push_back(val2);
+                edges.push_back(val2);
                 edgeCount++;
             }
 
@@ -210,49 +199,49 @@ void ReadInFile(std::string          fileName,
         }
     }
     
-    vertices.push_back(0);
-    vertices.push_back(1);
-    vertices.push_back(3);
-    vertices.push_back(4);
-    vertices.push_back(5);
-    vertices.push_back(6);
-    vertices.push_back(7);
-    vertices.push_back(8);
-    vertices.push_back(9);
-    vertices.push_back(2);
+    // vertices.push_back(0);
+    // vertices.push_back(1);
+    // vertices.push_back(3);
+    // vertices.push_back(4);
+    // vertices.push_back(5);
+    // vertices.push_back(6);
+    // vertices.push_back(7);
+    // vertices.push_back(8);
+    // vertices.push_back(9);
+    // vertices.push_back(2);
 
-    edges.push_back(1);
-    edges.push_back(3);
-    edges.push_back(2);
-    edges.push_back(4);
-    edges.push_back(9);
-    edges.push_back(5);
-    edges.push_back(6);
-    edges.push_back(7);
-    edges.push_back(6);
-    edges.push_back(7);
-    edges.push_back(8);
-    edges.push_back(9);
-    edges.push_back(2);
-    edges.push_back(0);
+    // edges.push_back(1);
+    // edges.push_back(3);
+    // edges.push_back(2);
+    // edges.push_back(4);
+    // edges.push_back(9);
+    // edges.push_back(5);
+    // edges.push_back(6);
+    // edges.push_back(7);
+    // edges.push_back(6);
+    // edges.push_back(7);
+    // edges.push_back(8);
+    // edges.push_back(9);
+    // edges.push_back(2);
+    // edges.push_back(0);
 
-    vertIndices.push_back(0);
-    vertIndices.push_back(2);
-    vertIndices.push_back(3);
-    vertIndices.push_back(5);
-    vertIndices.push_back(8);
-    vertIndices.push_back(9);
-    vertIndices.push_back(10);
-    vertIndices.push_back(12);
+    // vertIndices.push_back(0);
+    // vertIndices.push_back(2);
+    // vertIndices.push_back(3);
+    // vertIndices.push_back(5);
+    // vertIndices.push_back(8);
+    // vertIndices.push_back(9);
+    // vertIndices.push_back(10);
+    // vertIndices.push_back(12);
 
-    edgeLength.push_back(2);
-    edgeLength.push_back(1);
-    edgeLength.push_back(2);
-    edgeLength.push_back(3);
-    edgeLength.push_back(1);
-    edgeLength.push_back(1);
-    edgeLength.push_back(2);
-    edgeLength.push_back(2);
+    // edgeLength.push_back(2);
+    // edgeLength.push_back(1);
+    // edgeLength.push_back(2);
+    // edgeLength.push_back(3);
+    // edgeLength.push_back(1);
+    // edgeLength.push_back(1);
+    // edgeLength.push_back(2);
+    // edgeLength.push_back(2);
 }
   
 // Main Program 
@@ -309,8 +298,7 @@ int main(int argc, char const *argv[])
     printf("\n");
 
     // GPU - One using Thrust, another making kernel calls
-    printf("Running BFS on GPU %d\n", vertexSize);
-    //RunBFSShortestDistance(vertices, destination, source, totalEdges);
+    printf("Running BFS on GPU\n");
     //RunBFSUsingThrust(vertices, destination, source, totalEdges);
 
     // Testing new Algorithm

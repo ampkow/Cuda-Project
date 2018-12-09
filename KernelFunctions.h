@@ -1,4 +1,4 @@
-// GPUBFSCalls.h
+// KernelFunctions.h
 // Contains wrapper calls around GPU code
 
 #include <vector>

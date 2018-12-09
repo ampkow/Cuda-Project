@@ -1,36 +1,26 @@
-ASSIGNMENT # 9 NVgraph Program
+Project:
 Adam Piorkowski
 
-Program_name: nvgraph_assign.cu
+Runs BFS Algorithms on three different graphs.
 
-Notes: 
-NOTE!!!! I had issues trying to make nvgraph_assign.cu compile on Linux, but
-the program compiles on windows with 
-nvcc.exe -lcudart -lcuda -lnvgraph -I ..\..\..\common\inc\ .\nvgraph_assign.cu -o .\nvgraph_assign
+There are two algorithms running on GPU and one on CPU.
 
-Running run_nvgraph.bat will compile the program and run it
+Timing results are printed at the end.
 
-The output of this is shown in output_nvgraph.txt
+Program_name: BFSProject.cpp
+GPU Code:     KernelFunctions.cu
+Header:       KernelFunction.h
+Executable:   BFS
 
-The program creates a simple graph with n verticies and n edges
+On linux running make will compile the executable.
 
-Time outputs are found at the end of each run.
-
-The different runs are:
-nvgraph_assign 256
-nvgraph_assign 100
-nvgraph_assign 50
-nvgraph_assign 10
-
-
-output_nvgragh.txt shows the output of running "run_nvgraph.bat"
-There is a time comparison for the four different runs.
-There is total time output, traversal time output, time
-it took to allocate the memory, and time it took to copy
-back to device.
-
-JPEG files 
-nvprof_nvgraph.jpg shows output of nvprof
-
+run.bat on Windows and run.sh on Linux will compile
+and run the executable on the three graphs defined in
+the text files:
+    SampleGraph.txt
+    MedSizeGraph.txt
+    LargeSizeGraph.txt
+Timing is outputted for the CPU and GPU algorithms at 
+the end.
 
 

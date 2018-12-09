@@ -1,2 +1,2 @@
-all: BFS.cu
-	nvcc  -lcudart -lcuda -lnvgraph -I ../../../common/inc BFSProject.cu KernelFunctions.cu -o BFS
+all: BFSProject.cpp
+	nvcc  -lcudart -lcuda -I ../../../common/inc BFSProject.cpp KernelFunctions.cu -o BFS

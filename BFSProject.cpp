@@ -2,6 +2,7 @@
 // Using basic BFS algorithm defined from websites below
 // https://www.geeksforgeeks.org/shortest-path-unweighted-graph/
 // https://en.wikipedia.org/wiki/Breadth-first_search
+// Used to help in Design of CUDA Algorithm
 // https://www.nvidia.co.uk/content/cudazone/CUDABrowser/downloads/Accelerate_Large_Graph_Algorithms/HiPC.pdf
 
 // Author: Adam Piorkowski
@@ -18,8 +19,10 @@
 #include <fstream>
 #include <sstream>
 #include <string>
-#include <ctime>
+#include <chrono>
+
 using namespace std; 
+using namespace std::chrono;
 
 // Has Kernel Functionality for Cuda and the GPU Calls
 #include "KernelFunctions.h"
@@ -137,7 +140,7 @@ void FindShortestPath(vector<int> &path,
    *  from the source value
    * 
    * */ 
-float BFSComputeShortedDist(vector<vector<int>> graph, 
+double BFSComputeShortedDist(vector<vector<int>> graph, 
                             int source,  
                             int destination, 
                             int vertexSize) 
@@ -148,10 +151,14 @@ float BFSComputeShortedDist(vector<vector<int>> graph,
     predecessors.resize(vertexSize);
     distances.resize(vertexSize);
 
-    std::clock_t start = clock();
+
+    high_resolution_clock::time_point start = high_resolution_clock::now();
+
     bool foundDest = BFS(graph, source, destination, vertexSize, predecessors, distances);
   
-    if (foundDest == false) 
+   high_resolution_clock::time_point stop = high_resolution_clock::now();
+   auto totalTime = duration_cast<milliseconds>( stop - start ).count();
+   if (foundDest == false) 
     { 
         printf("Shortest Path not found to destination %d \n", destination); 
         return 0.0; 
@@ -163,8 +170,6 @@ float BFSComputeShortedDist(vector<vector<int>> graph,
     printf("Shortest Path Length is %d \n", distances[destination]); 
 
     FindShortestPath(path, predecessors, destination);
-    std::clock_t end = clock();
-    float totalTime = float(end - start) / CLOCKS_PER_SEC;
 
     printf("\n");
 

@@ -201,11 +201,10 @@ __global__ void BFSLevels(int  *vertices,
             visitedVertices[curVert] = true;
 
             // Grab indexes for curVert edges in edge array
-            int edgesBegin = vertIndices[thrID];
-            int edgesEnd   = edgeSize[thrID] + edgesBegin;  
+            int edgesEnd  = edgeSize[thrID] + vertIndices[thrID];  
 
             // Iterate through all edges for current vertex
-            for (int edgeIter = edgesBegin; edgeIter < edgesEnd; ++edgeIter)
+            for (int edgeIter = vertIndices[thrID]; edgeIter < edgesEnd; ++edgeIter)
             {
                 // Grab next Vertex at end of edge
                 int nextVert = edges[edgeIter];
@@ -244,7 +243,7 @@ __global__ void BFSLevels(int  *vertices,
 float BFSByLevel(std::vector<int> &vertices,
                  std::vector<int> &edges,
                  std::vector<int> &vertIndices,
-                 std::vector<int> &edgeLength,
+                 std::vector<int> &edgeSize,
                  int               destination,
                  int               source)
 {
@@ -287,7 +286,7 @@ float BFSByLevel(std::vector<int> &vertices,
     thrust::device_vector<int> d_vertices(vertices);
     thrust::device_vector<int> d_edges(edges);
     thrust::device_vector<int> d_vertIndices(vertIndices);
-    thrust::device_vector<int> d_edgeLength(edgeLength);
+    thrust::device_vector<int> d_edgeSize(edgeSize);
 
     cudaError_t result;
 
@@ -384,7 +383,7 @@ float BFSByLevel(std::vector<int> &vertices,
                                               d_distances,
                                               d_predecessors,
                                               thrust::raw_pointer_cast(d_vertIndices.data()),
-                                              thrust::raw_pointer_cast(d_edgeLength.data()),
+                                              thrust::raw_pointer_cast(d_edgeSize.data()),
                                               d_levels,
                                               d_visitedVertices,
                                               d_foundDest,

@@ -31,10 +31,7 @@ using namespace std::chrono;
 void createNewEdge(vector<vector<int> > &graph, int src, int dest) 
 { 
     graph[src].push_back(dest); 
-    if (dest != -4)
-    {
-        graph[dest].push_back(src); 
-    }
+    graph[dest].push_back(src); 
 } 
   
 /** Runs BFS and calculates distances on CPU
@@ -156,9 +153,9 @@ double BFSComputeShortedDist(vector<vector<int>> graph,
 
     bool foundDest = BFS(graph, source, destination, vertexSize, predecessors, distances);
   
-   high_resolution_clock::time_point stop = high_resolution_clock::now();
-   auto totalTime = duration_cast<milliseconds>( stop - start ).count();
-   if (foundDest == false) 
+    high_resolution_clock::time_point stop = high_resolution_clock::now();
+    auto totalTime = duration_cast<milliseconds>( stop - start ).count();
+    if (foundDest == false) 
     { 
         printf("Shortest Path not found to destination %d \n", destination); 
         return 0.0; 
@@ -210,7 +207,6 @@ void ReadInFile(std::string          fileName,
 
     while (inputFile >> val1 >> val2)
     {
-        printf("Val1 %d, Val2 %d\n", val1, val2);
         if (val2 == -1)           // Designates number of Vertices
         {
             graph.resize(val1);
